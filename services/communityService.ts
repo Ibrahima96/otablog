@@ -1,137 +1,76 @@
 import { supabase } from './supabaseClient';
-import { CommunityPost, PostType, MarketplaceItem } from '../types';
 
-export interface CreatePostParams {
-    type: PostType;
-    caption: string;
-    mediaFile?: File;
-    imageUrl?: string;
-    marketplaceItem?: Omit<MarketplaceItem, 'currency'>;
-}
-
-export interface PostFilters {
-    type?: PostType;
-    limit?: number;
-    offset?: number;
-}
+import { CommunityPost, PostFilters } from '../types';
 
 /**
- * Upload media file to Supabase Storage
+ * Create a new post
  */
-export const uploadMedia = async (file: File, userId: string): Promise<string> => {
-    try {
-        // Create unique filename with user ID folder structure
-        const fileExt = file.name.split('.').pop();
-        const fileName = `${userId}/${Date.now()}.${fileExt}`;
-
-        const { data, error } = await supabase.storage
-            .from('community-media')
-            .upload(fileName, file, {
-                cacheControl: '3600',
-                upsert: false
-            });
-
-        if (error) throw error;
-
-        // Get public URL
-        const { data: urlData } = supabase.storage
-            .from('community-media')
-            .getPublicUrl(data.path);
-
-        return urlData.publicUrl;
-    } catch (error) {
-        console.error('Error uploading media:', error);
-        throw new Error('Échec de l\'upload du fichier');
+export const createPost = async (
+    userId: string,
+    type: 'image' | 'video' | 'marketplace',
+    caption: string,
+    file: File | null,
+    marketplaceData?: {
+        title: string;
+        description: string;
+        price: number;
+        currency: string;
+        category: string;
     }
-};
-
-/**
- * Create a new community post
- */
-export const createPost = async (params: CreatePostParams, userId: string, username?: string): Promise<CommunityPost> => {
-    console.log('🚀 [createPost] Starting with params:', {
-        type: params.type,
-        hasFile: !!params.mediaFile,
-        hasMarketplaceItem: !!params.marketplaceItem,
-        userId
-    });
-
+): Promise<CommunityPost | null> => {
     try {
-        let mediaUrl: string | null = null;
+        let mediaUrl = '';
 
-        // Upload media if provided
-        if (params.mediaFile) {
-            console.log('📤 [createPost] Uploading media file...');
-            mediaUrl = await uploadMedia(params.mediaFile, userId);
-            console.log('✅ [createPost] Media uploaded:', mediaUrl);
-        } else if (params.imageUrl) {
-            // Use provided URL directly
-            console.log('🔗 [createPost] Using provided image URL:', params.imageUrl);
-            mediaUrl = params.imageUrl;
+        // Upload media if present
+        if (file) {
+            const fileExt = file.name.split('.').pop();
+            const fileName = `${Math.random()}.${fileExt}`;
+            const filePath = `${userId}/${fileName}`;
+
+            const { error: uploadError } = await supabase.storage
+                .from('community-media')
+                .upload(filePath, file);
+
+            if (uploadError) throw uploadError;
+
+            const { data } = supabase.storage
+                .from('community-media')
+                .getPublicUrl(filePath);
+
+            mediaUrl = data.publicUrl;
         }
 
-        // Insert post
-        console.log('💾 [createPost] Inserting post into database...');
-        const insertData = {
-            user_id: userId,
-            username: username || 'Utilisateur',
-            type: params.type,
-            caption: params.caption,
-            media_url: mediaUrl
-        };
-        console.log('📝 [createPost] Insert data:', insertData);
-
-        const { data: postData, error: postError } = await supabase
+        // Create post
+        const { data: post, error: postError } = await supabase
             .from('posts')
-            .insert(insertData)
-            .select('*')
+            .insert({
+                user_id: userId,
+                type,
+                caption,
+                media_url: mediaUrl
+            })
+            .select()
             .single();
 
-        if (postError) {
-            console.error('❌ [createPost] Post insert error:', postError);
-            throw postError;
-        }
+        if (postError) throw postError;
 
-        console.log('✅ [createPost] Post created successfully:', postData);
-
-        // If marketplace item, insert it
-        if (params.type === 'marketplace' && params.marketplaceItem) {
-            console.log('🛒 [createPost] Inserting marketplace item...');
-            const marketplaceData = {
-                post_id: postData.id,
-                title: params.marketplaceItem.title,
-                description: params.marketplaceItem.description,
-                price: params.marketplaceItem.price,
-                category: params.marketplaceItem.category,
-                currency: 'EUR'
-            };
-            console.log('📝 [createPost] Marketplace data:', marketplaceData);
-
-            const { error: marketplaceError } = await supabase
+        // Create marketplace item if applicable
+        if (type === 'marketplace' && marketplaceData) {
+            const { error: marketError } = await supabase
                 .from('marketplace_items')
-                .insert(marketplaceData);
+                .insert({
+                    post_id: post.id,
+                    ...marketplaceData
+                });
 
-            if (marketplaceError) {
-                console.error('❌ [createPost] Marketplace insert error:', marketplaceError);
-                throw marketplaceError;
-            }
-            console.log('✅ [createPost] Marketplace item created');
+            if (marketError) throw marketError;
         }
 
-        // Fetch complete post
-        console.log('🔄 [createPost] Fetching complete post data...');
-        const completePost = await getPostById(postData.id);
-        console.log('✅ [createPost] Complete! Final post:', completePost);
-        return completePost;
-    } catch (error: any) {
-        console.error('❌ [createPost] Fatal error:', error);
-        console.error('Error details:', {
-            message: error.message,
-            code: error.code,
-            details: error.details,
-            hint: error.hint
-        });
-        throw new Error(`Échec de la création du post: ${error.message || 'Erreur inconnue'}`);
+        // Return complete post
+        return await getPostById(post.id);
+    } catch (error) {
+        console.error('Error creating post:', error);
+        throw new Error('Échec de la création du post');
     }
 };
 
@@ -355,3 +294,58 @@ function transformPostData(data: any): CommunityPost {
         comments: data.comments_count || 0
     };
 }
+
+/**
+ * Get comments for a post
+ */
+export const getCommentsByPost = async (postId: string): Promise<any[]> => {
+    try {
+        const { data, error } = await supabase
+            .from('post_comments')
+            .select(`
+                *,
+                profiles:user_id (
+                    username,
+                    avatar_url
+                )
+            `)
+            .eq('post_id', postId)
+            .order('created_at', { ascending: false });
+
+        if (error) throw error;
+
+        return (data || []).map(comment => ({
+            id: comment.id,
+            text: comment.text,
+            created_at: comment.created_at,
+            username: comment.profiles?.username || 'Utilisateur',
+            avatar_url: comment.profiles?.avatar_url
+        }));
+    } catch (error) {
+        console.error('Error fetching comments:', error);
+        return [];
+    }
+};
+
+/**
+ * Add a comment to a post
+ */
+export const addComment = async (postId: string, userId: string, text: string): Promise<any> => {
+    try {
+        const { data, error } = await supabase
+            .from('post_comments')
+            .insert({
+                post_id: postId,
+                user_id: userId,
+                text
+            })
+            .select()
+            .single();
+
+        if (error) throw error;
+        return data;
+    } catch (error) {
+        console.error('Error adding comment:', error);
+        throw new Error('Échec de l\'ajout du commentaire');
+    }
+};

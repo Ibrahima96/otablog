@@ -9,9 +9,10 @@ import ProductPreviewModal from './ProductPreviewModal';
 interface CommunityPostProps {
     post: CommunityPostType;
     onDelete?: (postId: string) => void;
+    onCommentClick?: (post: CommunityPostType) => void;
 }
 
-const CommunityPost: React.FC<CommunityPostProps> = ({ post, onDelete }) => {
+const CommunityPost: React.FC<CommunityPostProps> = ({ post, onDelete, onCommentClick }) => {
     const { user } = useAuth();
     const isMarketplace = post.type === 'marketplace';
     const [liked, setLiked] = useState(false);
@@ -188,7 +189,10 @@ const CommunityPost: React.FC<CommunityPostProps> = ({ post, onDelete }) => {
                             />
                             <span className="text-sm font-mono">{likeCount}</span>
                         </button>
-                        <button className="flex items-center gap-1.5 hover:text-cyanLight transition-colors">
+                        <button
+                            onClick={() => onCommentClick && onCommentClick(post)}
+                            className="flex items-center gap-1.5 hover:text-cyanLight transition-colors cursor-pointer"
+                        >
                             <MessageCircle size={18} />
                             <span className="text-sm font-mono">{post.comments}</span>
                         </button>
