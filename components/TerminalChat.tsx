@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Send, Terminal, Cpu, Lock, LogIn } from 'lucide-react';
-import { streamChatResponse } from '../services/mockService';
+import { streamChatResponse } from '../services/geminiService';
 import { ChatMessage } from '../types';
 import { useAuth } from '../context/AuthContext';
 
@@ -59,19 +59,26 @@ const TerminalChat: React.FC<TerminalChatProps> = ({ onOpenAuth }) => {
         fullResponse += chunk;
         setMessages(prev => prev.map(msg =>
           msg.id === botMsgId
-            ? { ...msg, text: fullResponse }
+            ? { ...msg, text: fullResponse, isTyping: true }
             : msg
         ));
       }
-    } catch (error) {
-      console.error("Chat Error:", error);
-    } finally {
-      setIsLoading(false);
+
+      // Stream completed successfully - remove typing indicator
       setMessages(prev => prev.map(msg =>
         msg.id === botMsgId
           ? { ...msg, isTyping: false }
           : msg
       ));
+    } catch (error) {
+      console.error("Chat Error:", error);
+      setMessages(prev => prev.map(msg =>
+        msg.id === botMsgId
+          ? { ...msg, text: msg.text || "Erreur de connexion au serveur.", isTyping: false }
+          : msg
+      ));
+    } finally {
+      setIsLoading(false);
     }
   };
 

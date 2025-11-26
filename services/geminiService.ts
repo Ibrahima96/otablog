@@ -7,7 +7,7 @@ export const streamChatResponse = async function* (
   userMessage: string
 ): AsyncGenerator<string, void, unknown> {
   try {
-    const model = 'gemini-1.5-flash';
+    const model = 'gemini-2.0-flash';
 
     // Construct the chat history for the API
     const formattedHistory = history.map(msg => ({

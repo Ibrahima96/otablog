@@ -1,9 +1,9 @@
 import { GoogleGenAI } from "@google/genai";
 
 // Key from .env (verified in previous step)
-const apiKey = "AIzaSyB4USx0rXfaP24WNtGfAZbrTbTwqE7LGsU"; 
-const ai = new GoogleGenAI({ apiKey });
-
+// const apiKey = "AIzaSyAdduSQYpeG1q_1b-RkXVtLjZ74J6Jp6mI"; 
+// const ai = new GoogleGenAI({ apiKey });
+const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY });
 async function test() {
   try {
     const model = 'gemini-2.0-flash';
