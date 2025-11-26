@@ -334,13 +334,21 @@ function transformPostData(data: any): CommunityPost {
         content: {
             mediaUrl: data.media_url,
             caption: data.caption,
-            marketplaceItem: data.marketplace_item ? {
-                title: data.marketplace_item.title,
-                description: data.marketplace_item.description,
-                price: parseFloat(data.marketplace_item.price),
-                currency: data.marketplace_item.currency,
-                category: data.marketplace_item.category
-            } : undefined
+            marketplaceItem: (() => {
+                const item = Array.isArray(data.marketplace_item)
+                    ? data.marketplace_item[0]
+                    : data.marketplace_item;
+
+                if (!item) return undefined;
+
+                return {
+                    title: item.title,
+                    description: item.description,
+                    price: typeof item.price === 'string' ? parseFloat(item.price) : Number(item.price),
+                    currency: item.currency,
+                    category: item.category
+                };
+            })()
         },
         createdAt: new Date(data.created_at),
         likes: data.likes_count || 0,

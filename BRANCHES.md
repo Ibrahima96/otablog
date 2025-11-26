@@ -9,8 +9,6 @@ Voici la liste des branches git créées pour le projet Gravity :
 
 ### 📋 Autres Branches Locales
 - **main** - Branche principale (contient le fix Mock Mode)
-- **otaku2** - Branche de développement (fusionnée)
-- **otaku1** - Première branche otaku
 
 ## Branches Distantes
 
