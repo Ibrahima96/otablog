@@ -314,6 +314,50 @@ export async function addComment(
 }
 
 /**
+ * Delete a comment (only if the user is the author)
+ */
+export async function deleteComment(
+    commentId: string,
+    userId: string
+): Promise<boolean> {
+    try {
+        // First verify the user owns this comment
+        const { data: comment, error: fetchError } = await supabase
+            .from('duel_comments')
+            .select('user_id')
+            .eq('id', commentId)
+            .single();
+
+        if (fetchError || !comment) {
+            console.error('Error fetching comment:', fetchError);
+            return false;
+        }
+
+        // Check ownership
+        if (comment.user_id !== userId) {
+            console.error('User does not own this comment');
+            return false;
+        }
+
+        // Delete the comment
+        const { error: deleteError } = await supabase
+            .from('duel_comments')
+            .delete()
+            .eq('id', commentId);
+
+        if (deleteError) {
+            console.error('Error deleting comment:', deleteError);
+            return false;
+        }
+
+        return true;
+    } catch (error) {
+        console.error('Unexpected error in deleteComment:', error);
+        return false;
+    }
+}
+
+/**
  * Get the current champion (winner of the most recent completed duel)
  */
 export async function getChampion(): Promise<{

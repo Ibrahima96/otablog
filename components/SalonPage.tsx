@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Trophy, Swords, MessageSquare, ThumbsUp, User, Plus, X, Send, Loader } from 'lucide-react';
+import { Trophy, Swords, MessageSquare, ThumbsUp, User, Plus, X, Send, Loader, Trash2 } from 'lucide-react';
 import FloatingChat from './FloatingChat';
 import { useAuth } from '../context/AuthContext';
 import { Duel, DuelComment } from '../types';
@@ -138,6 +138,21 @@ const SalonPage: React.FC = () => {
         setIsSubmitting(false);
     };
 
+    const handleDeleteComment = async (commentId: string) => {
+        if (!user) return;
+
+        if (!confirm('Êtes-vous sûr de vouloir supprimer ce commentaire ?')) {
+            return;
+        }
+
+        const success = await salonService.deleteComment(commentId, user.id);
+        if (success) {
+            setComments(prev => prev.filter(c => c.id !== commentId));
+        } else {
+            alert('Erreur lors de la suppression du commentaire');
+        }
+    };
+
     const getTimeAgo = (date: Date): string => {
         const seconds = Math.floor((new Date().getTime() - date.getTime()) / 1000);
         if (seconds < 60) return 'À l\'instant';
@@ -210,7 +225,17 @@ const SalonPage: React.FC = () => {
                     </form>
                 )}
                 <div className="space-y-6">
-                    {comments.map(comment => <Comment key={comment.id} author={comment.authorName} text={comment.text} time={getTimeAgo(comment.createdAt)} />)}
+                    {comments.map(comment => (
+                        <Comment
+                            key={comment.id}
+                            author={comment.authorName}
+                            text={comment.text}
+                            time={getTimeAgo(comment.createdAt)}
+                            userId={comment.userId}
+                            currentUserId={user?.id}
+                            onDelete={() => handleDeleteComment(comment.id)}
+                        />
+                    ))}
                 </div>
             </div>
 
@@ -341,18 +366,27 @@ const CandidateCard: React.FC<{ candidate: { name: string; image: string; descri
     </motion.div>
 );
 
-const Comment = ({ author, text, time }: { author: string; text: string; time: string }) => (
-    <div className="flex gap-4 p-4 rounded-xl bg-white/5 border border-white/5">
+const Comment = ({ author, text, time, userId, currentUserId, onDelete }: { author: string; text: string; time: string; userId: string; currentUserId?: string; onDelete: () => void }) => (
+    <div className="flex gap-4 p-4 rounded-xl bg-white/5 border border-white/5 group">
         <div className="w-10 h-10 rounded-full bg-gradient-to-br from-gray-700 to-gray-900 flex items-center justify-center">
             <User size={16} className="text-gray-400" />
         </div>
-        <div>
+        <div className="flex-1">
             <div className="flex items-center gap-3 mb-1">
                 <span className="font-bold text-white text-sm">{author}</span>
                 <span className="text-xs text-gray-500 font-mono">{time}</span>
             </div>
             <p className="text-gray-300 text-sm leading-relaxed">{text}</p>
         </div>
+        {userId === currentUserId && (
+            <button
+                onClick={onDelete}
+                className="opacity-0 group-hover:opacity-100 transition-opacity text-gray-400 hover:text-red-400 p-2 hover:bg-red-500/10 rounded-lg"
+                title="Supprimer le commentaire"
+            >
+                <Trash2 size={16} />
+            </button>
+        )}
     </div>
 );
 
