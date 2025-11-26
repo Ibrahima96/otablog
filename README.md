@@ -6,7 +6,7 @@
 
 This contains everything you need to run your app locally.
 
-View your app in AI Studio: https://ai.studio/apps/drive/14tKNs9gDPYvo1AClOfFiveW1FijWmtfa
+View your app in AI https://gravity-ota.vercel.app/
 
 ## Run Locally
 
