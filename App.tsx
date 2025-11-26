@@ -267,7 +267,7 @@ const Footer = () => (
         ))}
       </div>
 
-      <p className="text-gray-600 text-sm">© 2025 OtaBlog - Créé par Bicomaru Shogunai. Tous droits réservés.</p>
+      <p className="text-gray-600 text-sm">© 2025 OtaBlog - Créé par Bicomaru Shogunai & Haibo-goat. Tous droits réservés.</p>
     </div>
   </footer>
 );
