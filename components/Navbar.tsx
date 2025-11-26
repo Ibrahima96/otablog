@@ -4,9 +4,11 @@ import { useAuth } from '../context/AuthContext';
 
 interface NavbarProps {
   onOpenAuth: () => void;
+  currentView?: 'home' | 'salon';
+  onNavigate?: (view: 'home' | 'salon') => void;
 }
 
-const Navbar: React.FC<NavbarProps> = ({ onOpenAuth }) => {
+const Navbar: React.FC<NavbarProps> = ({ onOpenAuth, currentView = 'home', onNavigate }) => {
   const [scrolled, setScrolled] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
   const { user, signOut } = useAuth();
@@ -20,16 +22,19 @@ const Navbar: React.FC<NavbarProps> = ({ onOpenAuth }) => {
   }, []);
 
   const navLinks = [
-    { name: 'Découvrir', href: '#discover' },
-    { name: 'Communauté', href: '#community' },
-    { name: 'Terminal', href: '#chat' },
+    { name: 'Découvrir', href: '#discover', view: 'home' },
+    { name: 'Communauté', href: '#community', view: 'home' },
+    { name: 'Terminal', href: '#chat', view: 'home' },
   ];
 
   return (
     <nav className={`fixed top-0 w-full z-50 transition-all duration-300 ${scrolled ? 'glass-panel border-b border-white/5 py-4' : 'bg-transparent py-6'}`}>
       <div className="max-w-7xl mx-auto px-6 flex justify-between items-center">
         {/* Logo */}
-        <div className="flex items-center gap-2 group cursor-pointer">
+        <div
+          className="flex items-center gap-2 group cursor-pointer"
+          onClick={() => onNavigate?.('home')}
+        >
           <div className="w-10 h-10 bg-gradient-to-br from-neonPink to-neonPurple rounded-lg flex items-center justify-center shadow-[0_0_15px_rgba(247,37,133,0.4)] group-hover:shadow-[0_0_25px_rgba(247,37,133,0.6)] transition-all">
             <Zap className="text-white w-6 h-6" />
           </div>
@@ -44,12 +49,33 @@ const Navbar: React.FC<NavbarProps> = ({ onOpenAuth }) => {
           {navLinks.map((link) => (
             <a
               key={link.name}
-              href={link.href}
+              href={link.view === 'home' ? link.href : '#'}
+              onClick={(e) => {
+                if (link.view === 'home' && currentView !== 'home') {
+                  e.preventDefault();
+                  onNavigate?.('home');
+                  // Small timeout to allow view switch before scrolling
+                  setTimeout(() => {
+                    const element = document.querySelector(link.href);
+                    element?.scrollIntoView({ behavior: 'smooth' });
+                  }, 100);
+                }
+              }}
               className="text-gray-300 hover:text-cyanLight font-medium text-sm tracking-wide transition-colors relative after:content-[''] after:absolute after:-bottom-1 after:left-0 after:w-0 after:h-[1px] after:bg-cyanLight hover:after:w-full after:transition-all"
             >
               {link.name}
             </a>
           ))}
+
+          {user && (
+            <button
+              onClick={() => onNavigate?.('salon')}
+              className={`text-sm font-medium tracking-wide transition-colors relative ${currentView === 'salon' ? 'text-neonPink' : 'text-gray-300 hover:text-neonPink'
+                }`}
+            >
+              SALON VERSUS
+            </button>
+          )}
 
           {user ? (
             <div className="flex items-center gap-4">
@@ -92,11 +118,26 @@ const Navbar: React.FC<NavbarProps> = ({ onOpenAuth }) => {
               key={link.name}
               href={link.href}
               className="text-xl text-gray-300 hover:text-cyanLight font-display"
-              onClick={() => setIsOpen(false)}
+              onClick={() => {
+                if (link.view === 'home') onNavigate?.('home');
+                setIsOpen(false);
+              }}
             >
               {link.name}
             </a>
           ))}
+
+          {user && (
+            <button
+              onClick={() => {
+                onNavigate?.('salon');
+                setIsOpen(false);
+              }}
+              className="text-xl text-neonPink font-display text-left"
+            >
+              SALON VERSUS
+            </button>
+          )}
 
           {user ? (
             <div className="border-t border-white/10 pt-6 flex justify-between items-center">
