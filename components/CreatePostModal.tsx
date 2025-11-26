@@ -1,0 +1,617 @@
+import React, { useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { X, Image as ImageIcon, Video, ShoppingBag, Upload, DollarSign, Tag, CheckCircle, Loader2, Shirt, Watch, Package, Link } from 'lucide-react';
+import { PostType, CommunityPost } from '../types';
+import { createPost } from '../services/communityService';
+import { useAuth } from '../context/AuthContext';
+
+interface CreatePostModalProps {
+    isOpen: boolean;
+    onClose: () => void;
+    onPostCreated?: (post: CommunityPost) => void;
+}
+
+const CreatePostModal: React.FC<CreatePostModalProps> = ({ isOpen, onClose, onPostCreated }) => {
+    const { user } = useAuth();
+    const [postType, setPostType] = useState<PostType>('image');
+    const [caption, setCaption] = useState('');
+    const [title, setTitle] = useState('');
+    const [price, setPrice] = useState('');
+    const [category, setCategory] = useState<'article' | 'vetement' | 'accessoire' | 'autre'>('article');
+    const [mediaFile, setMediaFile] = useState<File | null>(null);
+    const [mediaPreview, setMediaPreview] = useState<string | null>(null);
+    const [imageInputMethod, setImageInputMethod] = useState<'upload' | 'url'>('upload');
+    const [imageUrl, setImageUrl] = useState('');
+    const [isUploading, setIsUploading] = useState(false);
+    const [uploadSuccess, setUploadSuccess] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+
+    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        // Validate file type
+        const validImageTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+        const validVideoTypes = ['video/mp4', 'video/webm', 'video/ogg'];
+
+        if ((postType === 'image' || postType === 'marketplace') && !validImageTypes.includes(file.type)) {
+            setError('Format d\'image non supporté. Utilisez JPG, PNG, GIF ou WebP.');
+            return;
+        }
+
+        if (postType === 'video' && !validVideoTypes.includes(file.type)) {
+            setError('Format de vidéo non supporté. Utilisez MP4, WebM ou OGG.');
+            return;
+        }
+
+        // Validate file size (max 50MB)
+        const maxSize = 50 * 1024 * 1024; // 50MB
+        if (file.size > maxSize) {
+            setError('Le fichier est trop volumineux. Taille maximale: 50MB.');
+            return;
+        }
+
+        setError(null);
+        setMediaFile(file);
+
+        // Create preview
+        const reader = new FileReader();
+        reader.onloadend = () => {
+            setMediaPreview(reader.result as string);
+        };
+        reader.readAsDataURL(file);
+    };
+
+    const handleImageUrlChange = (url: string) => {
+        setImageUrl(url);
+        if (url) {
+            setError(null);
+            setMediaPreview(url);
+        } else {
+            setMediaPreview(null);
+        }
+    };
+
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+
+        console.log('📝 [CreatePostModal] Form submitted');
+
+        if (!user) {
+            console.error('❌ [CreatePostModal] No user found');
+            setError('Vous devez être connecté');
+            return;
+        }
+
+        console.log('👤 [CreatePostModal] User:', { id: user.id, email: user.email });
+
+        setIsUploading(true);
+        setError(null);
+
+        try {
+            const postData: any = {
+                type: postType,
+                caption,
+                mediaFile: mediaFile || undefined
+            };
+
+            // Add imageUrl if provided and no file
+            if (imageUrl && !mediaFile) {
+                postData.imageUrl = imageUrl;
+            }
+
+            // Add marketplace data if type is marketplace
+            if (postType === 'marketplace') {
+                if (!title || !price) {
+                    setError('Veuillez remplir tous les champs obligatoires');
+                    setIsUploading(false);
+                    return;
+                }
+
+                if (!mediaFile && !imageUrl) {
+                    setError('Veuillez ajouter une image du produit (fichier ou URL)');
+                    setIsUploading(false);
+                    return;
+                }
+
+                postData.marketplaceItem = {
+                    title,
+                    description: caption,
+                    price: parseFloat(price),
+                    category
+                };
+            }
+
+            console.log('📤 [CreatePostModal] Creating post with data:', {
+                type: postData.type,
+                hasFile: !!postData.mediaFile,
+                hasMarketplace: !!postData.marketplaceItem,
+                userId: user.id
+            });
+
+            // Get username from user metadata or email
+            const username = user.user_metadata?.username || user.email?.split('@')[0] || 'Utilisateur';
+            console.log('👤 [CreatePostModal] Username:', username);
+
+            // Create post
+            const newPost = await createPost(postData, user.id, username);
+
+            console.log('✅ [CreatePostModal] Post created successfully:', newPost);
+
+            setUploadSuccess(true);
+
+            // Notify parent component
+            if (onPostCreated) {
+                onPostCreated(newPost);
+            }
+
+            // Wait a bit to show success message, then close
+            setTimeout(() => {
+                handleClose();
+            }, 1500);
+
+        } catch (err: any) {
+            console.error('❌ [CreatePostModal] Error:', err);
+            const errorMessage = err.message || 'Une erreur est survenue lors de la création du post';
+            console.error('Error message:', errorMessage);
+            console.error('Error stack:', err.stack);
+            setError(errorMessage);
+            setIsUploading(false);
+        }
+    };
+
+    const handleClose = () => {
+        if (!isUploading) {
+            setCaption('');
+            setTitle('');
+            setPrice('');
+            setMediaFile(null);
+            setMediaPreview(null);
+            setImageUrl('');
+            setImageInputMethod('upload');
+            setUploadSuccess(false);
+            setError(null);
+            onClose();
+        }
+    };
+
+    return (
+        <AnimatePresence>
+            {isOpen && (
+                <>
+                    {/* Backdrop */}
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        onClick={handleClose}
+                        className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+                    >
+                        {/* Modal */}
+                        <motion.div
+                            initial={{ scale: 0.9, opacity: 0, y: 20 }}
+                            animate={{ scale: 1, opacity: 1, y: 0 }}
+                            exit={{ scale: 0.9, opacity: 0, y: 20 }}
+                            onClick={(e) => e.stopPropagation()}
+                            className="bg-[#0f0f13] border border-white/10 w-full max-w-2xl rounded-2xl overflow-hidden shadow-[0_0_50px_rgba(114,9,183,0.3)] relative max-h-[90vh] overflow-y-auto"
+                        >
+                            {/* Decorative Elements */}
+                            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-neonPink via-neonPurple to-electricBlue"></div>
+                            <div className="absolute -left-10 -top-10 w-32 h-32 bg-neonPurple/20 rounded-full blur-[50px]"></div>
+                            <div className="absolute -right-10 -bottom-10 w-32 h-32 bg-cyanLight/20 rounded-full blur-[50px]"></div>
+
+                            {/* Close Button */}
+                            {!isUploading && (
+                                <button
+                                    onClick={handleClose}
+                                    className="absolute top-4 right-4 text-gray-400 hover:text-white transition-colors z-20"
+                                >
+                                    <X size={24} />
+                                </button>
+                            )}
+
+                            <div className="p-8 relative z-10">
+                                {uploadSuccess ? (
+                                    // Success State
+                                    <div className="text-center py-12">
+                                        <CheckCircle className="w-16 h-16 text-green-500 mx-auto mb-4 animate-pulse" />
+                                        <h3 className="text-2xl font-display font-bold text-white mb-2">
+                                            POST CRÉÉ !
+                                        </h3>
+                                        <p className="text-gray-400">Votre contenu a été publié avec succès</p>
+                                    </div>
+                                ) : (
+                                    <>
+                                        <div className="text-center mb-8">
+                                            <h2 className="text-3xl font-display font-bold text-white mb-2">
+                                                CRÉER UN POST
+                                            </h2>
+                                            <p className="text-cyanLight font-mono text-xs tracking-[0.2em] uppercase">
+                                                PARTAGE AVEC LA COMMUNAUTÉ
+                                            </p>
+                                        </div>
+
+                                        <form onSubmit={handleSubmit} className="space-y-6">
+                                            {/* Post Type Selector */}
+                                            <div className="space-y-3">
+                                                <label className="text-xs text-gray-400 font-bold uppercase tracking-wide">Type de Post</label>
+                                                <div className="grid grid-cols-3 gap-3">
+                                                    {[
+                                                        { type: 'image' as PostType, icon: ImageIcon, label: 'Image' },
+                                                        { type: 'video' as PostType, icon: Video, label: 'Vidéo' },
+                                                        { type: 'marketplace' as PostType, icon: ShoppingBag, label: 'Vente' }
+                                                    ].map(({ type, icon: Icon, label }) => (
+                                                        <button
+                                                            key={type}
+                                                            type="button"
+                                                            onClick={() => setPostType(type)}
+                                                            disabled={isUploading}
+                                                            className={`p-4 rounded-lg border transition-all disabled:opacity-50 ${postType === type
+                                                                ? 'bg-neonPurple/20 border-neonPurple text-neonPurple'
+                                                                : 'bg-white/5 border-white/10 text-gray-400 hover:border-white/20'
+                                                                }`}
+                                                        >
+                                                            <Icon className="w-6 h-6 mx-auto mb-2" />
+                                                            <span className="text-xs font-bold">{label}</span>
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            </div>
+
+                                            {/* File Upload */}
+                                            {(postType === 'image' || postType === 'video') && (
+                                                <div className="space-y-3">
+                                                    <div className="flex items-center justify-between">
+                                                        <label className="text-xs text-gray-400 font-bold uppercase tracking-wide">
+                                                            Fichier {postType === 'image' ? 'Image' : 'Vidéo'}
+                                                        </label>
+                                                        <div className="flex gap-2">
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => {
+                                                                    setImageInputMethod('upload');
+                                                                    setImageUrl('');
+                                                                    setMediaPreview(null);
+                                                                }}
+                                                                disabled={isUploading}
+                                                                className={`px-3 py-1 rounded text-xs font-bold transition-all ${imageInputMethod === 'upload'
+                                                                    ? 'bg-neonPurple/20 text-neonPurple border border-neonPurple'
+                                                                    : 'bg-white/5 text-gray-400 border border-white/10 hover:border-white/20'
+                                                                    }`}
+                                                            >
+                                                                <Upload className="inline w-3 h-3 mr-1" />
+                                                                Upload
+                                                            </button>
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => {
+                                                                    setImageInputMethod('url');
+                                                                    setMediaFile(null);
+                                                                    setMediaPreview(null);
+                                                                }}
+                                                                disabled={isUploading}
+                                                                className={`px-3 py-1 rounded text-xs font-bold transition-all ${imageInputMethod === 'url'
+                                                                    ? 'bg-neonPurple/20 text-neonPurple border border-neonPurple'
+                                                                    : 'bg-white/5 text-gray-400 border border-white/10 hover:border-white/20'
+                                                                    }`}
+                                                            >
+                                                                <Link className="inline w-3 h-3 mr-1" />
+                                                                URL
+                                                            </button>
+                                                        </div>
+                                                    </div>
+
+                                                    {imageInputMethod === 'url' ? (
+                                                        <div className="space-y-2">
+                                                            <input
+                                                                type="url"
+                                                                value={imageUrl}
+                                                                onChange={(e) => handleImageUrlChange(e.target.value)}
+                                                                disabled={isUploading}
+                                                                className="w-full bg-white/5 border border-white/10 rounded-lg py-3 px-4 text-white focus:outline-none focus:border-neonPurple transition-all placeholder-gray-600 disabled:opacity-50"
+                                                                placeholder={postType === 'image' ? 'https://example.com/image.jpg' : 'https://example.com/video.mp4'}
+                                                            />
+                                                            {imageUrl && (
+                                                                <div className="relative">
+                                                                    {postType === 'image' ? (
+                                                                        <img
+                                                                            src={imageUrl}
+                                                                            alt="Aperçu"
+                                                                            className="w-full h-64 object-cover rounded-lg"
+                                                                            onError={() => setError('URL d\'image invalide')}
+                                                                        />
+                                                                    ) : (
+                                                                        <video
+                                                                            src={imageUrl}
+                                                                            controls
+                                                                            className="w-full h-64 rounded-lg bg-black"
+                                                                            onError={() => setError('URL de vidéo invalide')}
+                                                                        />
+                                                                    )}
+                                                                    {!isUploading && (
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() => {
+                                                                                setImageUrl('');
+                                                                                setMediaPreview(null);
+                                                                            }}
+                                                                            className="absolute top-2 right-2 bg-red-500 text-white p-2 rounded-full hover:bg-red-600 transition-colors"
+                                                                        >
+                                                                            <X size={16} />
+                                                                        </button>
+                                                                    )}
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    ) : (
+                                                        mediaPreview ? (
+                                                            <div className="relative">
+                                                                {postType === 'image' ? (
+                                                                    <img
+                                                                        src={mediaPreview}
+                                                                        alt="Preview"
+                                                                        className="w-full h-64 object-cover rounded-lg"
+                                                                    />
+                                                                ) : (
+                                                                    <video
+                                                                        src={mediaPreview}
+                                                                        controls
+                                                                        className="w-full h-64 rounded-lg bg-black"
+                                                                    />
+                                                                )}
+                                                                {!isUploading && (
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => {
+                                                                            setMediaFile(null);
+                                                                            setMediaPreview(null);
+                                                                        }}
+                                                                        className="absolute top-2 right-2 bg-red-500 text-white p-2 rounded-full hover:bg-red-600 transition-colors"
+                                                                    >
+                                                                        <X size={16} />
+                                                                    </button>
+                                                                )}
+                                                            </div>
+                                                        ) : (
+                                                            <label className="block border-2 border-dashed border-white/20 rounded-lg p-8 text-center hover:border-neonPink/50 transition-colors cursor-pointer">
+                                                                <input
+                                                                    type="file"
+                                                                    accept={postType === 'image' ? 'image/*' : 'video/*'}
+                                                                    onChange={handleFileChange}
+                                                                    disabled={isUploading}
+                                                                    className="hidden"
+                                                                />
+                                                                <Upload className="w-12 h-12 mx-auto mb-3 text-gray-500" />
+                                                                <p className="text-gray-400 text-sm mb-1">Cliquez pour uploader</p>
+                                                                <p className="text-gray-600 text-xs">Max 50MB</p>
+                                                            </label>
+                                                        ))}
+                                                </div>
+                                            )}
+
+                                            {/* Marketplace Fields */}
+                                            {postType === 'marketplace' && (
+                                                <>
+                                                    <div className="grid grid-cols-2 gap-4">
+                                                        <div className="space-y-2">
+                                                            <label className="text-xs text-gray-400 font-bold uppercase tracking-wide">Titre *</label>
+                                                            <input
+                                                                type="text"
+                                                                value={title}
+                                                                onChange={(e) => setTitle(e.target.value)}
+                                                                disabled={isUploading}
+                                                                className="w-full bg-white/5 border border-white/10 rounded-lg py-3 px-4 text-white focus:outline-none focus:border-neonPink transition-all placeholder-gray-600 disabled:opacity-50"
+                                                                placeholder="Ex: T-shirt Naruto"
+                                                                required
+                                                            />
+                                                        </div>
+                                                        <div className="space-y-2">
+                                                            <label className="text-xs text-gray-400 font-bold uppercase tracking-wide">Prix (€) *</label>
+                                                            <div className="relative">
+                                                                <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" size={18} />
+                                                                <input
+                                                                    type="number"
+                                                                    step="0.01"
+                                                                    value={price}
+                                                                    onChange={(e) => setPrice(e.target.value)}
+                                                                    disabled={isUploading}
+                                                                    className="w-full bg-white/5 border border-white/10 rounded-lg py-3 pl-10 pr-4 text-white focus:outline-none focus:border-neonPink transition-all placeholder-gray-600 disabled:opacity-50"
+                                                                    placeholder="25"
+                                                                    required
+                                                                />
+                                                            </div>
+                                                        </div>
+                                                    </div>
+
+                                                    {/* Category Selector */}
+                                                    <div className="space-y-2">
+                                                        <label className="text-xs text-gray-400 font-bold uppercase tracking-wide">Catégorie *</label>
+                                                        <div className="grid grid-cols-2 gap-3">
+                                                            {[
+                                                                { value: 'article', icon: Package, label: 'Article' },
+                                                                { value: 'vetement', icon: Shirt, label: 'Vêtement' },
+                                                                { value: 'accessoire', icon: Watch, label: 'Accessoire' },
+                                                                { value: 'autre', icon: Tag, label: 'Autre' }
+                                                            ].map(({ value, icon: Icon, label }) => (
+                                                                <button
+                                                                    key={value}
+                                                                    type="button"
+                                                                    onClick={() => setCategory(value as any)}
+                                                                    disabled={isUploading}
+                                                                    className={`p-3 rounded-lg border transition-all disabled:opacity-50 flex items-center gap-2 ${category === value
+                                                                        ? 'bg-neonPurple/20 border-neonPurple text-neonPurple'
+                                                                        : 'bg-white/5 border-white/10 text-gray-400 hover:border-white/20'
+                                                                        }`}
+                                                                >
+                                                                    <Icon size={18} />
+                                                                    <span className="text-sm font-bold">{label}</span>
+                                                                </button>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+
+                                                    {/* Product Image Upload/URL */}
+                                                    <div className="space-y-3">
+                                                        <div className="flex items-center justify-between">
+                                                            <label className="text-xs text-gray-400 font-bold uppercase tracking-wide">
+                                                                Image du Produit *
+                                                            </label>
+                                                            <div className="flex gap-2">
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => {
+                                                                        setImageInputMethod('upload');
+                                                                        setImageUrl('');
+                                                                        setMediaPreview(null);
+                                                                    }}
+                                                                    disabled={isUploading}
+                                                                    className={`px-3 py-1 rounded text-xs font-bold transition-all ${imageInputMethod === 'upload'
+                                                                        ? 'bg-neonPurple/20 text-neonPurple border border-neonPurple'
+                                                                        : 'bg-white/5 text-gray-400 border border-white/10 hover:border-white/20'
+                                                                        }`}
+                                                                >
+                                                                    <Upload className="inline w-3 h-3 mr-1" />
+                                                                    Upload
+                                                                </button>
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => {
+                                                                        setImageInputMethod('url');
+                                                                        setMediaFile(null);
+                                                                        setMediaPreview(null);
+                                                                    }}
+                                                                    disabled={isUploading}
+                                                                    className={`px-3 py-1 rounded text-xs font-bold transition-all ${imageInputMethod === 'url'
+                                                                        ? 'bg-neonPurple/20 text-neonPurple border border-neonPurple'
+                                                                        : 'bg-white/5 text-gray-400 border border-white/10 hover:border-white/20'
+                                                                        }`}
+                                                                >
+                                                                    <Link className="inline w-3 h-3 mr-1" />
+                                                                    URL
+                                                                </button>
+                                                            </div>
+                                                        </div>
+
+                                                        {imageInputMethod === 'url' ? (
+                                                            <div className="space-y-2">
+                                                                <input
+                                                                    type="url"
+                                                                    value={imageUrl}
+                                                                    onChange={(e) => handleImageUrlChange(e.target.value)}
+                                                                    disabled={isUploading}
+                                                                    className="w-full bg-white/5 border border-white/10 rounded-lg py-3 px-4 text-white focus:outline-none focus:border-neonPurple transition-all placeholder-gray-600 disabled:opacity-50"
+                                                                    placeholder="https://example.com/image.jpg"
+                                                                />
+                                                                {imageUrl && (
+                                                                    <div className="relative">
+                                                                        <img
+                                                                            src={imageUrl}
+                                                                            alt="Aperçu"
+                                                                            className="w-full h-64 object-cover rounded-lg"
+                                                                            onError={() => setError('URL d\'image invalide')}
+                                                                        />
+                                                                        {!isUploading && (
+                                                                            <button
+                                                                                type="button"
+                                                                                onClick={() => {
+                                                                                    setImageUrl('');
+                                                                                    setMediaPreview(null);
+                                                                                }}
+                                                                                className="absolute top-2 right-2 bg-red-500 text-white p-2 rounded-full hover:bg-red-600 transition-colors"
+                                                                            >
+                                                                                <X size={16} />
+                                                                            </button>
+                                                                        )}
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        ) : (
+                                                            mediaPreview ? (
+                                                                <div className="relative">
+                                                                    <img
+                                                                        src={mediaPreview}
+                                                                        alt="Aperçu du produit"
+                                                                        className="w-full h-64 object-cover rounded-lg"
+                                                                    />
+                                                                    {!isUploading && (
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() => {
+                                                                                setMediaFile(null);
+                                                                                setMediaPreview(null);
+                                                                            }}
+                                                                            className="absolute top-2 right-2 bg-red-500 text-white p-2 rounded-full hover:bg-red-600 transition-colors"
+                                                                        >
+                                                                            <X size={16} />
+                                                                        </button>
+                                                                    )}
+                                                                </div>
+                                                            ) : (
+                                                                <label className="block border-2 border-dashed border-white/20 rounded-lg p-8 text-center hover:border-neonPink/50 transition-colors cursor-pointer">
+                                                                    <input
+                                                                        type="file"
+                                                                        accept="image/*"
+                                                                        onChange={handleFileChange}
+                                                                        disabled={isUploading}
+                                                                        className="hidden"
+                                                                    />
+                                                                    <Upload className="w-12 h-12 mx-auto mb-3 text-gray-500" />
+                                                                    <p className="text-gray-400 text-sm mb-1">Cliquez pour uploader l'image du produit</p>
+                                                                    <p className="text-gray-600 text-xs">JPG, PNG, GIF ou WebP - Max 50MB</p>
+                                                                </label>
+                                                            ))}
+                                                    </div>
+                                                </>
+                                            )}
+
+                                            {/* Caption */}
+                                            <div className="space-y-2">
+                                                <label className="text-xs text-gray-400 font-bold uppercase tracking-wide">
+                                                    {postType === 'marketplace' ? 'Description *' : 'Légende *'}
+                                                </label>
+                                                <textarea
+                                                    value={caption}
+                                                    onChange={(e) => setCaption(e.target.value)}
+                                                    rows={4}
+                                                    disabled={isUploading}
+                                                    className="w-full bg-white/5 border border-white/10 rounded-lg py-3 px-4 text-white focus:outline-none focus:border-neonPurple transition-all placeholder-gray-600 resize-none disabled:opacity-50"
+                                                    placeholder={postType === 'marketplace' ? 'Décrivez votre article...' : 'Ajoutez une légende...'}
+                                                    required
+                                                />
+                                            </div>
+
+                                            {/* Error Message */}
+                                            {error && (
+                                                <div className="bg-red-500/10 border border-red-500/50 p-3 rounded-lg text-red-200 text-sm">
+                                                    {error}
+                                                </div>
+                                            )}
+
+                                            {/* Submit Button */}
+                                            <button
+                                                type="submit"
+                                                disabled={isUploading}
+                                                className="w-full bg-gradient-to-r from-neonPurple to-neonPink text-white font-bold py-3 rounded-lg shadow-[0_0_20px_rgba(247,37,133,0.4)] hover:shadow-[0_0_30px_rgba(247,37,133,0.6)] hover:scale-[1.02] transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 flex items-center justify-center gap-2"
+                                            >
+                                                {isUploading ? (
+                                                    <>
+                                                        <Loader2 className="w-5 h-5 animate-spin" />
+                                                        <span>PUBLICATION EN COURS...</span>
+                                                    </>
+                                                ) : (
+                                                    <span>PUBLIER</span>
+                                                )}
+                                            </button>
+                                        </form>
+                                    </>
+                                )}
+                            </div>
+                        </motion.div>
+                    </motion.div>
+                </>
+            )}
+        </AnimatePresence>
+    );
+};
+
+export default CreatePostModal;
