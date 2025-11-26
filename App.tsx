@@ -5,6 +5,7 @@ import TerminalChat from './components/TerminalChat';
 import AuthModal from './components/AuthModal';
 import Community from './components/Community';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { CartProvider } from './context/CartContext';
 import { ArrowRight, MessageSquare, Share2, Sparkles } from 'lucide-react';
 
 const Hero = ({ onOpenAuth }: { onOpenAuth: () => void }) => {
@@ -139,7 +140,9 @@ const AppContent: React.FC = () => {
 const App: React.FC = () => {
   return (
     <AuthProvider>
-      <AppContent />
+      <CartProvider>
+        <AppContent />
+      </CartProvider>
     </AuthProvider>
   );
 };
