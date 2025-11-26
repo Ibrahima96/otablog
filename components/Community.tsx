@@ -3,6 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import { Users, Plus, Lock, LogIn, Image as ImageIcon, ShoppingBag, Sparkles, Loader2 } from 'lucide-react';
 import CommunityPost from './CommunityPost';
 import CreatePostModal from './CreatePostModal';
+import PostModal from './PostModal';
 import { CommunityPost as CommunityPostType, PostType } from '../types';
 import { getPosts } from '../services/communityService';
 
@@ -18,6 +19,7 @@ const Community: React.FC<CommunityProps> = ({ onOpenAuth }) => {
     const [activeFilter, setActiveFilter] = useState<PostType | 'all'>('all');
     const [hasMore, setHasMore] = useState(true);
     const [currentOffset, setCurrentOffset] = useState(0);
+    const [selectedPost, setSelectedPost] = useState<CommunityPostType | null>(null);
     const POSTS_PER_PAGE = 9;
 
     // Fetch posts on mount and when filter changes
@@ -85,6 +87,10 @@ const Community: React.FC<CommunityProps> = ({ onOpenAuth }) => {
     const handleFilterChange = (filter: PostType | 'all') => {
         setActiveFilter(filter);
         setCurrentOffset(0);
+    };
+
+    const handleCommentClick = (post: CommunityPostType) => {
+        setSelectedPost(post);
     };
 
     return (
@@ -171,8 +177,8 @@ const Community: React.FC<CommunityProps> = ({ onOpenAuth }) => {
                                     key={tab.value}
                                     onClick={() => handleFilterChange(tab.value)}
                                     className={`px-6 py-2 rounded-full border transition-all font-mono text-sm ${activeFilter === tab.value
-                                            ? 'border-neonPink bg-neonPink/20 text-neonPink'
-                                            : 'border-white/10 text-gray-400 hover:text-white hover:border-neonPink/50'
+                                        ? 'border-neonPink bg-neonPink/20 text-neonPink'
+                                        : 'border-white/10 text-gray-400 hover:text-white hover:border-neonPink/50'
                                         }`}
                                 >
                                     {tab.label}
@@ -203,6 +209,7 @@ const Community: React.FC<CommunityProps> = ({ onOpenAuth }) => {
                                         key={post.id}
                                         post={post}
                                         onDelete={handlePostDeleted}
+                                        onCommentClick={handleCommentClick}
                                     />
                                 ))}
                             </div>
@@ -236,6 +243,14 @@ const Community: React.FC<CommunityProps> = ({ onOpenAuth }) => {
                 isOpen={isCreatePostOpen}
                 onClose={() => setIsCreatePostOpen(false)}
                 onPostCreated={handlePostCreated}
+            />
+
+            {/* Post/Comment Modal */}
+            <PostModal
+                isOpen={!!selectedPost}
+                onClose={() => setSelectedPost(null)}
+                post={selectedPost}
+                onOpenAuth={onOpenAuth || (() => { })}
             />
         </section>
     );
