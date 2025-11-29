@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Send, User, Loader, Mic, Square, Play, Pause } from 'lucide-react';
+import { Send, User, Loader, Mic, Square, Play, Pause, Image as ImageIcon, MoreVertical, Edit2, Trash2, X } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import * as chatService from '../services/chatService';
 import { supabase } from '../services/supabaseClient';
@@ -19,18 +19,32 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ channel }) => {
     // Voice Recording State
     const [isRecording, setIsRecording] = useState(false);
     const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(null);
-    const [audioChunks, setAudioChunks] = useState<Blob[]>([]);
     const [recordingTime, setRecordingTime] = useState(0);
     const recordingTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+    // Edit & Delete State
+    const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
+    const [editContent, setEditContent] = useState('');
+    const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
+
+    // Image Upload State
+    const fileInputRef = useRef<HTMLInputElement>(null);
+    const [isUploading, setIsUploading] = useState(false);
 
     useEffect(() => {
         loadMessages();
 
         // Subscribe to realtime updates
-        subscriptionRef.current = chatService.subscribeToChannel(channel.id, (msg) => {
-            setMessages(prev => [...prev, msg]);
-            scrollToBottom();
-        });
+        subscriptionRef.current = chatService.subscribeToChannel(
+            channel.id,
+            (msg) => {
+                setMessages(prev => [...prev, msg]);
+                scrollToBottom();
+            },
+            (updatedMsg) => {
+                setMessages(prev => prev.map(m => m.id === updatedMsg.id ? updatedMsg : m));
+            }
+        );
 
         return () => {
             if (subscriptionRef.current) {
@@ -67,6 +81,51 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ channel }) => {
         }
     };
 
+    const handleEditMessage = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!editingMessageId || !editContent.trim()) return;
+
+        try {
+            await chatService.editMessage(editingMessageId, editContent);
+            setEditingMessageId(null);
+            setEditContent('');
+            setActiveMenuId(null);
+        } catch (error) {
+            console.error('Error editing message:', error);
+            alert('Erreur lors de la modification');
+        }
+    };
+
+    const handleDeleteMessage = async (messageId: string) => {
+        if (!confirm('Voulez-vous vraiment supprimer ce message ?')) return;
+        try {
+            await chatService.deleteMessage(messageId);
+            setActiveMenuId(null);
+        } catch (error) {
+            console.error('Error deleting message:', error);
+            alert('Erreur lors de la suppression');
+        }
+    };
+
+    const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (!e.target.files || !e.target.files[0] || !user) return;
+
+        setIsUploading(true);
+        const file = e.target.files[0];
+
+        try {
+            const url = await chatService.uploadChatMedia(file);
+            if (url) {
+                await chatService.sendMessage(channel.id, user.id, 'Image', 'image', url);
+            }
+        } catch (error) {
+            console.error('Error uploading image:', error);
+            alert('Erreur lors de l\'envoi de l\'image');
+        }
+        setIsUploading(false);
+        if (fileInputRef.current) fileInputRef.current.value = '';
+    };
+
     const startRecording = async () => {
         try {
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -74,40 +133,29 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ channel }) => {
             const chunks: Blob[] = [];
 
             recorder.ondataavailable = (e) => {
-                if (e.data.size > 0) {
-                    chunks.push(e.data);
-                }
+                if (e.data.size > 0) chunks.push(e.data);
             };
 
             recorder.onstop = async () => {
                 const audioBlob = new Blob(chunks, { type: 'audio/webm' });
-                setAudioChunks([]);
-
-                // Upload and send
                 if (user) {
-                    const url = await chatService.uploadVoiceMessage(audioBlob);
+                    const url = await chatService.uploadChatMedia(audioBlob);
                     if (url) {
                         await chatService.sendMessage(channel.id, user.id, 'Message vocal', 'audio', url);
                     }
                 }
-
-                // Stop tracks
                 stream.getTracks().forEach(track => track.stop());
             };
 
             recorder.start();
             setMediaRecorder(recorder);
             setIsRecording(true);
-
-            // Timer
             setRecordingTime(0);
-            recordingTimerRef.current = setInterval(() => {
-                setRecordingTime(prev => prev + 1);
-            }, 1000);
+            recordingTimerRef.current = setInterval(() => setRecordingTime(prev => prev + 1), 1000);
 
         } catch (error) {
             console.error('Error accessing microphone:', error);
-            alert('Impossible d\'accéder au micro. Vérifiez vos permissions.');
+            alert('Impossible d\'accéder au micro.');
         }
     };
 
@@ -115,9 +163,7 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ channel }) => {
         if (mediaRecorder && isRecording) {
             mediaRecorder.stop();
             setIsRecording(false);
-            if (recordingTimerRef.current) {
-                clearInterval(recordingTimerRef.current);
-            }
+            if (recordingTimerRef.current) clearInterval(recordingTimerRef.current);
         }
     };
 
@@ -128,15 +174,11 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ channel }) => {
     };
 
     if (loading) {
-        return (
-            <div className="flex items-center justify-center h-64">
-                <Loader className="w-8 h-8 text-neonPink animate-spin" />
-            </div>
-        );
+        return <div className="flex items-center justify-center h-64"><Loader className="w-8 h-8 text-neonPink animate-spin" /></div>;
     }
 
     return (
-        <div className="flex flex-col h-[600px] bg-midnight/30 border border-white/10 rounded-2xl overflow-hidden backdrop-blur-sm">
+        <div className="flex flex-col h-[600px] bg-midnight/30 border border-white/10 rounded-2xl overflow-hidden backdrop-blur-sm" onClick={() => setActiveMenuId(null)}>
             {/* Header */}
             <div className="p-4 border-b border-white/10 bg-black/20">
                 <h3 className="text-xl font-display font-bold text-white">{channel.name}</h3>
@@ -145,46 +187,87 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ channel }) => {
 
             {/* Messages Area */}
             <div className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar">
-                {messages.length === 0 ? (
-                    <div className="text-center text-gray-500 py-10">
-                        <p>Le salon est calme... Lancez la discussion !</p>
-                    </div>
-                ) : (
-                    messages.map((msg) => {
-                        const isMe = user?.id === msg.user_id;
+                {messages.map((msg) => {
+                    const isMe = user?.id === msg.user_id;
+                    const isDeleted = !!msg.deleted_at;
+
+                    if (isDeleted) {
                         return (
                             <div key={msg.id} className={`flex gap-3 ${isMe ? 'flex-row-reverse' : ''}`}>
-                                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-gray-700 to-gray-900 flex items-center justify-center flex-shrink-0">
-                                    {msg.avatar_url ? (
-                                        <img src={msg.avatar_url} alt="" className="w-full h-full rounded-full object-cover" />
-                                    ) : (
-                                        <User size={14} className="text-gray-400" />
-                                    )}
-                                </div>
-                                <div className={`max-w-[70%] ${isMe ? 'items-end' : 'items-start'} flex flex-col`}>
-                                    <div className="flex items-center gap-2 mb-1">
-                                        <span className="text-xs text-gray-400 font-bold">{msg.username}</span>
-                                        <span className="text-[10px] text-gray-600">
-                                            {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                        </span>
-                                    </div>
-                                    <div className={`p-3 rounded-2xl text-sm ${isMe
-                                            ? 'bg-neonPink/20 text-white rounded-tr-none border border-neonPink/30'
-                                            : 'bg-white/10 text-gray-200 rounded-tl-none border border-white/5'
-                                        }`}>
-                                        {msg.message_type === 'audio' && msg.media_url ? (
-                                            <div className="flex items-center gap-2 min-w-[200px]">
-                                                <audio controls src={msg.media_url} className="w-full h-8" />
-                                            </div>
-                                        ) : (
-                                            msg.content
-                                        )}
-                                    </div>
+                                <div className="w-8 h-8 rounded-full bg-gray-800 flex items-center justify-center"><User size={14} className="text-gray-500" /></div>
+                                <div className="p-3 rounded-2xl bg-white/5 text-gray-500 text-sm italic border border-white/5">
+                                    🚫 Ce message a été supprimé
                                 </div>
                             </div>
                         );
-                    })
-                )}
+                    }
+
+                    return (
+                        <div key={msg.id} className={`flex gap-3 group ${isMe ? 'flex-row-reverse' : ''}`}>
+                            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-gray-700 to-gray-900 flex items-center justify-center flex-shrink-0 overflow-hidden">
+                                {msg.avatar_url ? <img src={msg.avatar_url} alt="" className="w-full h-full object-cover" /> : <User size={14} className="text-gray-400" />}
+                            </div>
+                            <div className={`max-w-[70%] ${isMe ? 'items-end' : 'items-start'} flex flex-col`}>
+                                <div className="flex items-center gap-2 mb-1">
+                                    <span className="text-xs text-gray-400 font-bold">{msg.username}</span>
+                                    <span className="text-[10px] text-gray-600">{new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                                </div>
+
+                                <div className="relative group/msg">
+                                    {editingMessageId === msg.id ? (
+                                        <form onSubmit={handleEditMessage} className="flex gap-2 items-center bg-black/50 p-2 rounded-xl border border-neonPink/50">
+                                            <input
+                                                autoFocus
+                                                value={editContent}
+                                                onChange={e => setEditContent(e.target.value)}
+                                                className="bg-transparent text-white text-sm outline-none min-w-[200px]"
+                                            />
+                                            <button type="submit" className="text-neonPink hover:text-white"><Send size={14} /></button>
+                                            <button type="button" onClick={() => setEditingMessageId(null)} className="text-gray-400 hover:text-white"><X size={14} /></button>
+                                        </form>
+                                    ) : (
+                                        <div className={`p-3 rounded-2xl text-sm relative ${isMe ? 'bg-neonPink/20 text-white rounded-tr-none border border-neonPink/30' : 'bg-white/10 text-gray-200 rounded-tl-none border border-white/5'}`}>
+                                            {msg.message_type === 'audio' && msg.media_url ? (
+                                                <div className="flex items-center gap-2 min-w-[200px]"><audio controls src={msg.media_url} className="w-full h-8" /></div>
+                                            ) : msg.message_type === 'image' && msg.media_url ? (
+                                                <img src={msg.media_url} alt="Image partagée" className="max-w-full rounded-lg max-h-64 object-cover cursor-pointer hover:opacity-90 transition-opacity" onClick={() => window.open(msg.media_url, '_blank')} />
+                                            ) : (
+                                                <>
+                                                    {msg.content}
+                                                    {msg.is_edited && <span className="text-[10px] text-gray-400 ml-2 italic">(modifié)</span>}
+                                                </>
+                                            )}
+                                        </div>
+                                    )}
+
+                                    {/* Context Menu Trigger */}
+                                    {isMe && !editingMessageId && !isDeleted && (
+                                        <div className={`absolute top-0 ${isMe ? '-left-8' : '-right-8'} opacity-0 group-hover/msg:opacity-100 transition-opacity`}>
+                                            <button
+                                                onClick={(e) => { e.stopPropagation(); setActiveMenuId(activeMenuId === msg.id ? null : msg.id); }}
+                                                className="p-1 hover:bg-white/10 rounded-full text-gray-400 hover:text-white"
+                                            >
+                                                <MoreVertical size={16} />
+                                            </button>
+                                            {activeMenuId === msg.id && (
+                                                <div className={`absolute top-6 ${isMe ? 'right-0' : 'left-0'} bg-[#111] border border-white/10 rounded-lg shadow-xl z-10 overflow-hidden min-w-[120px]`}>
+                                                    {msg.message_type === 'text' && (
+                                                        <button onClick={() => { setEditingMessageId(msg.id); setEditContent(msg.content); setActiveMenuId(null); }} className="w-full text-left px-4 py-2 text-sm text-white hover:bg-white/10 flex items-center gap-2">
+                                                            <Edit2 size={14} /> Modifier
+                                                        </button>
+                                                    )}
+                                                    <button onClick={() => handleDeleteMessage(msg.id)} className="w-full text-left px-4 py-2 text-sm text-red-400 hover:bg-red-500/10 flex items-center gap-2">
+                                                        <Trash2 size={14} /> Supprimer
+                                                    </button>
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    );
+                })}
                 <div ref={messagesEndRef} />
             </div>
 
@@ -197,15 +280,14 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ channel }) => {
                                 <div className="w-3 h-3 rounded-full bg-red-500 animate-ping" />
                                 <span className="text-red-500 font-mono font-bold">{formatTime(recordingTime)}</span>
                                 <span className="text-white text-sm flex-1 text-center">Enregistrement...</span>
-                                <button
-                                    onClick={stopRecording}
-                                    className="p-2 bg-red-500 text-white rounded-full hover:scale-110 transition-transform"
-                                >
-                                    <Square size={16} fill="currentColor" />
-                                </button>
+                                <button onClick={stopRecording} className="p-2 bg-red-500 text-white rounded-full hover:scale-110 transition-transform"><Square size={16} fill="currentColor" /></button>
                             </div>
                         ) : (
                             <>
+                                <input type="file" ref={fileInputRef} onChange={handleImageUpload} accept="image/*" className="hidden" />
+                                <button onClick={() => fileInputRef.current?.click()} disabled={isUploading} className="p-3 bg-white/10 hover:bg-white/20 text-white rounded-xl transition-colors border border-white/10 disabled:opacity-50">
+                                    {isUploading ? <Loader size={20} className="animate-spin" /> : <ImageIcon size={20} />}
+                                </button>
                                 <form onSubmit={handleSendMessage} className="flex-1 flex gap-3">
                                     <input
                                         type="text"
@@ -214,28 +296,16 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ channel }) => {
                                         placeholder={`Message dans #${channel.slug}...`}
                                         className="flex-1 bg-black/30 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-neonPink/50 transition-colors"
                                     />
-                                    <button
-                                        type="submit"
-                                        disabled={!newMessage.trim()}
-                                        className="px-4 py-2 bg-neonPink hover:bg-neonPink/80 text-white rounded-xl font-bold transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
-                                    >
+                                    <button type="submit" disabled={!newMessage.trim()} className="px-4 py-2 bg-neonPink hover:bg-neonPink/80 text-white rounded-xl font-bold transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center">
                                         <Send size={20} />
                                     </button>
                                 </form>
-                                <button
-                                    onClick={startRecording}
-                                    className="p-3 bg-white/10 hover:bg-white/20 text-white rounded-xl transition-colors border border-white/10"
-                                    title="Message vocal"
-                                >
-                                    <Mic size={20} />
-                                </button>
+                                <button onClick={startRecording} className="p-3 bg-white/10 hover:bg-white/20 text-white rounded-xl transition-colors border border-white/10" title="Message vocal"><Mic size={20} /></button>
                             </>
                         )}
                     </div>
                 ) : (
-                    <div className="text-center py-2">
-                        <p className="text-gray-400 text-sm">Connectez-vous pour participer au chat.</p>
-                    </div>
+                    <div className="text-center py-2"><p className="text-gray-400 text-sm">Connectez-vous pour participer au chat.</p></div>
                 )}
             </div>
         </div>

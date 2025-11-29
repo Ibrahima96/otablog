@@ -15,25 +15,13 @@ export interface ChannelMessage {
     created_at: string;
     username?: string;
     avatar_url?: string;
-    message_type?: 'text' | 'audio';
+    message_type?: 'text' | 'audio' | 'image';
     media_url?: string;
+    is_edited?: boolean;
+    deleted_at?: string;
 }
 
-/**
- * Fetch all available channels
- */
-export const getChannels = async (): Promise<Channel[]> => {
-    const { data, error } = await supabase
-        .from('channels')
-        .select('*')
-        .order('name');
-
-    if (error) {
-        console.error('Error fetching channels:', error);
-        return [];
-    }
-    return data || [];
-};
+// ... getChannels ...
 
 /**
  * Fetch messages for a specific channel
@@ -66,38 +54,45 @@ export const getChannelMessages = async (channelId: string): Promise<ChannelMess
         username: msg.profiles?.username || 'Utilisateur',
         avatar_url: msg.profiles?.avatar_url,
         message_type: msg.message_type || 'text',
-        media_url: msg.media_url
+        media_url: msg.media_url,
+        is_edited: msg.is_edited,
+        deleted_at: msg.deleted_at
     }));
 };
 
 /**
- * Upload voice message to storage
+ * Upload media (voice or image) to storage
  */
-export const uploadVoiceMessage = async (audioBlob: Blob): Promise<string | null> => {
+export const uploadChatMedia = async (file: Blob | File, bucket: 'chat-media' = 'chat-media'): Promise<string | null> => {
     try {
-        const fileName = `voice-${Date.now()}-${Math.random().toString(36).substring(7)}.webm`;
+        const fileExt = file instanceof File ? file.name.split('.').pop() : 'webm';
+        const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
+
         const { data, error } = await supabase.storage
-            .from('chat-media')
-            .upload(fileName, audioBlob, {
-                contentType: 'audio/webm',
-                cacheControl: '3600'
+            .from(bucket)
+            .upload(fileName, file, {
+                cacheControl: '3600',
+                upsert: false
             });
 
         if (error) {
-            console.error('Error uploading voice message:', error);
+            console.error('Error uploading media:', error);
             return null;
         }
 
         const { data: { publicUrl } } = supabase.storage
-            .from('chat-media')
+            .from(bucket)
             .getPublicUrl(fileName);
 
         return publicUrl;
     } catch (error) {
-        console.error('Error in uploadVoiceMessage:', error);
+        console.error('Error in uploadChatMedia:', error);
         return null;
     }
 };
+
+// Kept for backward compatibility if needed, but redirects to new function
+export const uploadVoiceMessage = (audioBlob: Blob) => uploadChatMedia(audioBlob);
 
 /**
  * Send a message to a channel
@@ -106,7 +101,7 @@ export const sendMessage = async (
     channelId: string,
     userId: string,
     content: string,
-    type: 'text' | 'audio' = 'text',
+    type: 'text' | 'audio' | 'image' = 'text',
     mediaUrl?: string
 ): Promise<void> => {
     const { error } = await supabase
@@ -114,7 +109,7 @@ export const sendMessage = async (
         .insert({
             channel_id: channelId,
             user_id: userId,
-            content, // For audio, this can be "Message vocal" or empty
+            content,
             message_type: type,
             media_url: mediaUrl
         });
@@ -125,9 +120,33 @@ export const sendMessage = async (
 };
 
 /**
+ * Edit a message
+ */
+export const editMessage = async (messageId: string, newContent: string): Promise<void> => {
+    const { error } = await supabase
+        .from('channel_messages')
+        .update({ content: newContent, is_edited: true })
+        .eq('id', messageId);
+
+    if (error) throw error;
+};
+
+/**
+ * Delete a message (soft delete)
+ */
+export const deleteMessage = async (messageId: string): Promise<void> => {
+    const { error } = await supabase
+        .from('channel_messages')
+        .update({ deleted_at: new Date().toISOString() })
+        .eq('id', messageId);
+
+    if (error) throw error;
+};
+
+/**
  * Subscribe to new messages in a channel
  */
-export const subscribeToChannel = (channelId: string, onMessage: (msg: ChannelMessage) => void) => {
+export const subscribeToChannel = (channelId: string, onMessage: (msg: ChannelMessage) => void, onUpdate?: (msg: ChannelMessage) => void) => {
     return supabase
         .channel(`public:channel_messages:channel_id=eq.${channelId}`)
         .on(
@@ -155,10 +174,45 @@ export const subscribeToChannel = (channelId: string, onMessage: (msg: ChannelMe
                     username: userData?.username || 'Utilisateur',
                     avatar_url: userData?.avatar_url,
                     message_type: payload.new.message_type || 'text',
-                    media_url: payload.new.media_url
+                    media_url: payload.new.media_url,
+                    is_edited: payload.new.is_edited,
+                    deleted_at: payload.new.deleted_at
                 };
 
                 onMessage(newMessage);
+            }
+        )
+        .on(
+            'postgres_changes',
+            {
+                event: 'UPDATE',
+                schema: 'public',
+                table: 'channel_messages',
+                filter: `channel_id=eq.${channelId}`
+            },
+            async (payload) => {
+                if (onUpdate) {
+                    const { data: userData } = await supabase
+                        .from('profiles')
+                        .select('username, avatar_url')
+                        .eq('id', payload.new.user_id)
+                        .single();
+
+                    const updatedMessage: ChannelMessage = {
+                        id: payload.new.id,
+                        channel_id: payload.new.channel_id,
+                        user_id: payload.new.user_id,
+                        content: payload.new.content,
+                        created_at: payload.new.created_at,
+                        username: userData?.username || 'Utilisateur',
+                        avatar_url: userData?.avatar_url,
+                        message_type: payload.new.message_type || 'text',
+                        media_url: payload.new.media_url,
+                        is_edited: payload.new.is_edited,
+                        deleted_at: payload.new.deleted_at
+                    };
+                    onUpdate(updatedMessage);
+                }
             }
         )
         .subscribe();

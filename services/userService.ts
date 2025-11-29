@@ -58,3 +58,55 @@ export async function getUserById(userId: string): Promise<User | null> {
         return null;
     }
 }
+
+/**
+ * Update user profile (username and/or avatar)
+ */
+export async function updateProfile(userId: string, updates: { username?: string; avatarFile?: File }): Promise<boolean> {
+    try {
+        let avatarUrl = undefined;
+
+        // Upload avatar if provided
+        if (updates.avatarFile) {
+            const fileExt = updates.avatarFile.name.split('.').pop();
+            const fileName = `${userId}-${Date.now()}.${fileExt}`;
+
+            const { error: uploadError } = await supabase.storage
+                .from('avatars')
+                .upload(fileName, updates.avatarFile, { upsert: true });
+
+            if (uploadError) {
+                console.error('Error uploading avatar:', uploadError);
+                return false;
+            }
+
+            const { data: { publicUrl } } = supabase.storage
+                .from('avatars')
+                .getPublicUrl(fileName);
+
+            avatarUrl = publicUrl;
+        }
+
+        // Update profile in DB
+        const updateData: any = {};
+        if (updates.username) updateData.username = updates.username;
+        if (avatarUrl) updateData.avatar_url = avatarUrl;
+
+        if (Object.keys(updateData).length === 0) return true;
+
+        const { error } = await supabase
+            .from('profiles')
+            .update(updateData)
+            .eq('id', userId);
+
+        if (error) {
+            console.error('Error updating profile:', error);
+            return false;
+        }
+
+        return true;
+    } catch (error) {
+        console.error('Error in updateProfile:', error);
+        return false;
+    }
+}
