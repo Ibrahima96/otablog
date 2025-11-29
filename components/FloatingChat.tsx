@@ -109,7 +109,7 @@ const FloatingChat: React.FC = () => {
                         initial={{ opacity: 0, y: 20, scale: 0.95 }}
                         animate={{ opacity: 1, y: 0, scale: 1 }}
                         exit={{ opacity: 0, y: 20, scale: 0.95 }}
-                        className="fixed bottom-6 right-6 z-50 w-[350px] h-[500px] bg-[#111] border border-white/10 rounded-2xl shadow-2xl flex flex-col overflow-hidden"
+                        className="fixed bottom-0 right-0 w-full h-[100dvh] sm:h-[500px] sm:w-[350px] sm:bottom-6 sm:right-6 z-50 bg-[#111] border-t sm:border border-white/10 sm:rounded-2xl shadow-2xl flex flex-col overflow-hidden"
                     >
                         {/* Header */}
                         <div className="p-4 bg-gradient-to-r from-neonPurple/20 to-neonPink/20 border-b border-white/10 flex justify-between items-center">
