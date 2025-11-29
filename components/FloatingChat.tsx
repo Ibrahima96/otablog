@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { MessageSquare, X, Send, Bot, Sparkles } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { streamChatResponse } from '../services/geminiService';
+import { streamChatResponse } from '../services/llamaService';
 import { ChatMessage } from '../types';
 import { useAuth } from '../context/AuthContext';
 
@@ -136,8 +136,8 @@ const FloatingChat: React.FC = () => {
                                     className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
                                 >
                                     <div className={`max-w-[85%] p-3 rounded-xl text-sm ${msg.role === 'user'
-                                            ? 'bg-neonPurple/20 text-white rounded-br-none border border-neonPurple/30'
-                                            : 'bg-white/5 text-gray-300 rounded-bl-none border border-white/10'
+                                        ? 'bg-neonPurple/20 text-white rounded-br-none border border-neonPurple/30'
+                                        : 'bg-white/5 text-gray-300 rounded-bl-none border border-white/10'
                                         }`}>
                                         {msg.text}
                                         {msg.isTyping && (

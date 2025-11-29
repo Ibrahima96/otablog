@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Send, Terminal, Cpu, Lock, LogIn } from 'lucide-react';
-import { streamChatResponse } from '../services/geminiService';
+import { streamChatResponse } from '../services/llamaService';
 import { ChatMessage } from '../types';
 import { useAuth } from '../context/AuthContext';
 

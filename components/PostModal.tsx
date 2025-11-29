@@ -53,6 +53,40 @@ const PostModal: React.FC<PostModalProps> = ({ isOpen, onClose, post, onOpenAuth
         setIsSubmitting(false);
     };
 
+    const handleDeleteComment = async (commentId: string) => {
+        if (!user || !confirm('Êtes-vous sûr de vouloir supprimer ce commentaire ?')) return;
+        try {
+            await communityService.deleteComment(commentId, user.id);
+            await loadComments();
+        } catch (error: any) {
+            alert(error.message);
+        }
+    };
+
+    const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
+    const [editCommentText, setEditCommentText] = useState('');
+
+    const startEditing = (comment: any) => {
+        setEditingCommentId(comment.id);
+        setEditCommentText(comment.text);
+    };
+
+    const cancelEditing = () => {
+        setEditingCommentId(null);
+        setEditCommentText('');
+    };
+
+    const handleUpdateComment = async (commentId: string) => {
+        if (!user || !editCommentText.trim()) return;
+        try {
+            await communityService.updateComment(commentId, user.id, editCommentText);
+            setEditingCommentId(null);
+            await loadComments();
+        } catch (error: any) {
+            alert(error.message);
+        }
+    };
+
     if (!isOpen || !post) return null;
 
     return (
@@ -165,7 +199,7 @@ const PostModal: React.FC<PostModalProps> = ({ isOpen, onClose, post, onOpenAuth
                         <div className="space-y-4 max-h-96 overflow-y-auto custom-scrollbar">
                             {postComments.length > 0 ? (
                                 postComments.map((comment) => (
-                                    <div key={comment.id} className="flex gap-3 p-3 rounded-lg bg-white/5">
+                                    <div key={comment.id} className="flex gap-3 p-3 rounded-lg bg-white/5 group">
                                         <div className="w-8 h-8 rounded-full bg-gradient-to-br from-gray-700 to-gray-900 flex items-center justify-center flex-shrink-0">
                                             {comment.avatar_url ? (
                                                 <img src={comment.avatar_url} alt="" className="w-full h-full rounded-full object-cover" />
@@ -174,15 +208,47 @@ const PostModal: React.FC<PostModalProps> = ({ isOpen, onClose, post, onOpenAuth
                                             )}
                                         </div>
                                         <div className="flex-1">
-                                            <div className="flex items-center gap-2 mb-1">
-                                                <span className="text-white font-semibold text-sm">{comment.username || 'Utilisateur'}</span>
-                                                <span className="text-gray-500 text-xs">
-                                                    {new Date(comment.created_at).toLocaleDateString('fr-FR', {
-                                                        day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit'
-                                                    })}
-                                                </span>
+                                            <div className="flex items-center justify-between mb-1">
+                                                <div className="flex items-center gap-2">
+                                                    <span className="text-white font-semibold text-sm">{comment.username || 'Utilisateur'}</span>
+                                                    <span className="text-gray-500 text-xs">
+                                                        {new Date(comment.created_at).toLocaleDateString('fr-FR', {
+                                                            day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit'
+                                                        })}
+                                                    </span>
+                                                </div>
+                                                {user && user.id === comment.user_id && (
+                                                    <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                        <button
+                                                            onClick={() => startEditing(comment)}
+                                                            className="text-xs text-cyanLight hover:underline"
+                                                        >
+                                                            Modifier
+                                                        </button>
+                                                        <button
+                                                            onClick={() => handleDeleteComment(comment.id)}
+                                                            className="text-xs text-red-400 hover:underline"
+                                                        >
+                                                            Supprimer
+                                                        </button>
+                                                    </div>
+                                                )}
                                             </div>
-                                            <p className="text-gray-300 text-sm">{comment.text}</p>
+
+                                            {editingCommentId === comment.id ? (
+                                                <div className="flex gap-2 mt-2">
+                                                    <input
+                                                        type="text"
+                                                        value={editCommentText}
+                                                        onChange={(e) => setEditCommentText(e.target.value)}
+                                                        className="flex-1 bg-black/50 border border-white/20 rounded px-2 py-1 text-sm text-white"
+                                                    />
+                                                    <button onClick={() => handleUpdateComment(comment.id)} className="text-xs bg-neonPink/20 text-neonPink px-2 rounded">OK</button>
+                                                    <button onClick={cancelEditing} className="text-xs bg-white/10 text-white px-2 rounded">Annuler</button>
+                                                </div>
+                                            ) : (
+                                                <p className="text-gray-300 text-sm">{comment.text}</p>
+                                            )}
                                         </div>
                                     </div>
                                 ))

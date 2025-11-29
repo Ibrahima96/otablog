@@ -6,23 +6,27 @@ import { CommunityPost, PostFilters } from '../types';
  * Create a new post
  */
 export const createPost = async (
+    postData: {
+        type: 'image' | 'video' | 'marketplace';
+        caption: string;
+        mediaFile?: File;
+        imageUrl?: string;
+        marketplaceItem?: {
+            title: string;
+            description: string;
+            price: number;
+            category: string;
+        }
+    },
     userId: string,
-    type: 'image' | 'video' | 'marketplace',
-    caption: string,
-    file: File | null,
-    marketplaceData?: {
-        title: string;
-        description: string;
-        price: number;
-        currency: string;
-        category: string;
-    }
+    username?: string
 ): Promise<CommunityPost | null> => {
     try {
-        let mediaUrl = '';
+        let mediaUrl = postData.imageUrl || '';
 
-        // Upload media if present
-        if (file) {
+        // Upload media if present (File object)
+        if (postData.mediaFile) {
+            const file = postData.mediaFile;
             const fileExt = file.name.split('.').pop();
             const fileName = `${Math.random()}.${fileExt}`;
             const filePath = `${userId}/${fileName}`;
@@ -45,8 +49,8 @@ export const createPost = async (
             .from('posts')
             .insert({
                 user_id: userId,
-                type,
-                caption,
+                type: postData.type,
+                caption: postData.caption,
                 media_url: mediaUrl
             })
             .select()
@@ -55,12 +59,12 @@ export const createPost = async (
         if (postError) throw postError;
 
         // Create marketplace item if applicable
-        if (type === 'marketplace' && marketplaceData) {
+        if (postData.type === 'marketplace' && postData.marketplaceItem) {
             const { error: marketError } = await supabase
                 .from('marketplace_items')
                 .insert({
                     post_id: post.id,
-                    ...marketplaceData
+                    ...postData.marketplaceItem
                 });
 
             if (marketError) throw marketError;
@@ -68,9 +72,9 @@ export const createPost = async (
 
         // Return complete post
         return await getPostById(post.id);
-    } catch (error) {
+    } catch (error: any) {
         console.error('Error creating post:', error);
-        throw new Error('Échec de la création du post');
+        throw new Error(error.message || 'Échec de la création du post');
     }
 };
 
@@ -318,6 +322,7 @@ export const getCommentsByPost = async (postId: string): Promise<any[]> => {
             id: comment.id,
             text: comment.text,
             created_at: comment.created_at,
+            user_id: comment.user_id, // Added user_id
             username: comment.profiles?.username || 'Utilisateur',
             avatar_url: comment.profiles?.avatar_url
         }));
@@ -344,8 +349,45 @@ export const addComment = async (postId: string, userId: string, text: string): 
 
         if (error) throw error;
         return data;
-    } catch (error) {
+    } catch (error: any) {
         console.error('Error adding comment:', error);
-        throw new Error('Échec de l\'ajout du commentaire');
+        throw new Error(error.message || 'Échec de l\'ajout du commentaire');
+    }
+};
+
+/**
+ * Delete a comment
+ */
+export const deleteComment = async (commentId: string, userId: string): Promise<void> => {
+    try {
+        // Verify ownership (optional, RLS handles it too but good for UI feedback)
+        const { error } = await supabase
+            .from('post_comments')
+            .delete()
+            .eq('id', commentId)
+            .eq('user_id', userId); // Ensure user owns it
+
+        if (error) throw error;
+    } catch (error: any) {
+        console.error('Error deleting comment:', error);
+        throw new Error(error.message || 'Échec de la suppression du commentaire');
+    }
+};
+
+/**
+ * Update a comment
+ */
+export const updateComment = async (commentId: string, userId: string, text: string): Promise<void> => {
+    try {
+        const { error } = await supabase
+            .from('post_comments')
+            .update({ text })
+            .eq('id', commentId)
+            .eq('user_id', userId);
+
+        if (error) throw error;
+    } catch (error: any) {
+        console.error('Error updating comment:', error);
+        throw new Error(error.message || 'Échec de la modification du commentaire');
     }
 };

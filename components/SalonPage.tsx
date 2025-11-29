@@ -1,14 +1,23 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Trophy, Swords, MessageSquare, ThumbsUp, User, Plus, X, Send, Loader, Trash2 } from 'lucide-react';
+import { Trophy, Swords, MessageSquare, ThumbsUp, User, Plus, X, Send, Loader, Trash2, Hash, ShoppingBag, Globe, MessageCircle } from 'lucide-react';
 import FloatingChat from './FloatingChat';
+import ChatRoom from './ChatRoom';
+import OnlineUsersList from './OnlineUsersList';
 import { useAuth } from '../context/AuthContext';
 import { Duel, DuelComment } from '../types';
 import * as salonService from '../services/salonService';
 import * as userService from '../services/userService';
+import * as chatService from '../services/chatService';
 
 const SalonPage: React.FC = () => {
     const { user } = useAuth();
+    const [activeTab, setActiveTab] = useState<'versus' | 'ota' | 'commerce' | 'all-for-one' | 'private'>('versus');
+    const [channels, setChannels] = useState<chatService.Channel[]>([]);
+    const [privateChats, setPrivateChats] = useState<chatService.Channel[]>([]);
+    const [activePrivateChatId, setActivePrivateChatId] = useState<string | null>(null);
+
+    // Versus State
     const [duel, setDuel] = useState<Duel | null>(null);
     const [loading, setLoading] = useState(true);
     const [hasVoted, setHasVoted] = useState(false);
@@ -35,13 +44,25 @@ const SalonPage: React.FC = () => {
     useEffect(() => {
         loadDuel();
         loadUsers();
-    }, []);
+        loadChannels();
+        if (user) loadPrivateChats();
+    }, [user]);
 
     useEffect(() => {
         if (duel && user) {
             checkUserVote();
         }
     }, [duel, user]);
+
+    const loadChannels = async () => {
+        const chans = await chatService.getChannels();
+        setChannels(chans.filter(c => !c.slug.startsWith('private-'))); // Only public channels
+    };
+
+    const loadPrivateChats = async () => {
+        const chats = await chatService.getMyPrivateChats();
+        setPrivateChats(chats);
+    };
 
     const loadUsers = async () => {
         const allUsers = await userService.getAllUsers();
@@ -153,6 +174,20 @@ const SalonPage: React.FC = () => {
         }
     };
 
+    const handleUserClick = async (otherUserId: string) => {
+        if (!user) {
+            alert('Connectez-vous pour envoyer un message privé.');
+            return;
+        }
+
+        const chatId = await chatService.createPrivateChat(otherUserId);
+        if (chatId) {
+            await loadPrivateChats();
+            setActivePrivateChatId(chatId);
+            setActiveTab('private');
+        }
+    };
+
     const getTimeAgo = (date: Date): string => {
         const seconds = Math.floor((new Date().getTime() - date.getTime()) / 1000);
         if (seconds < 60) return 'À l\'instant';
@@ -164,79 +199,174 @@ const SalonPage: React.FC = () => {
         return `Il y a ${days}j`;
     };
 
-    if (loading) return (
-        <div className="min-h-screen pt-24 pb-12 px-6 flex items-center justify-center">
-            <Loader className="w-12 h-12 text-neonPink animate-spin" />
-        </div>
-    );
-
-    if (!duel) return (
-        <div className="min-h-screen pt-24 pb-12 px-6 flex items-center justify-center">
-            <p className="text-gray-400">Aucun duel actif pour le moment.</p>
-        </div>
-    );
-
-    const totalVotes = duel.votesA + duel.votesB;
-    const percentA = totalVotes === 0 ? 0 : Math.round((duel.votesA / totalVotes) * 100);
-    const percentB = totalVotes === 0 ? 0 : Math.round((duel.votesB / totalVotes) * 100);
+    const getChannelBySlug = (slug: string) => channels.find(c => c.slug === slug);
+    const getPrivateChatById = (id: string) => privateChats.find(c => c.id === id);
 
     return (
-        <div className="min-h-screen pt-24 pb-12 px-6 max-w-7xl mx-auto">
-            <div className="text-center mb-16">
-                <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-neonPurple/10 border border-neonPurple/30 text-neonPurple mb-4">
-                    <Swords size={20} />
-                    <span className="font-mono uppercase tracking-widest text-sm">Zone de Duel</span>
-                </motion.div>
-                <h1 className="text-5xl md:text-7xl font-display font-black text-white mb-6 tracking-tighter">
-                    LE SALON <span className="text-transparent bg-clip-text bg-gradient-to-r from-neonPink to-neonPurple">VERSUS</span>
-                </h1>
-                <p className="text-gray-400 max-w-2xl mx-auto text-lg mb-8">
-                    Chaque week-end, deux légendes s'affrontent. La communauté décide. Le vainqueur règne sur la page d'accueil toute la semaine.
-                </p>
-                {user && (
-                    <button onClick={() => setIsCreateModalOpen(true)} className="inline-flex items-center gap-2 px-6 py-3 bg-white/5 hover:bg-white/10 border border-white/20 rounded-full text-white font-display font-bold tracking-wide transition-all hover:scale-105">
-                        <Plus size={18} />
-                        CRÉER UN DUEL
-                    </button>
+        <div className="min-h-screen pt-24 pb-12 px-6 max-w-[1600px] mx-auto flex gap-6">
+            {/* Sidebar (Desktop) */}
+            <div className="hidden lg:block w-80 flex-shrink-0 space-y-6">
+                <OnlineUsersList onUserClick={handleUserClick} />
+
+                {/* Private Chats List */}
+                {user && privateChats.length > 0 && (
+                    <div className="bg-midnight/30 border border-white/10 rounded-2xl overflow-hidden backdrop-blur-sm p-4">
+                        <h3 className="text-lg font-display font-bold text-white mb-4 flex items-center gap-2">
+                            <MessageCircle size={20} className="text-neonPink" />
+                            Mes Messages
+                        </h3>
+                        <div className="space-y-2">
+                            {privateChats.map(chat => (
+                                <button
+                                    key={chat.id}
+                                    onClick={() => { setActivePrivateChatId(chat.id); setActiveTab('private'); }}
+                                    className={`w-full text-left p-3 rounded-xl transition-colors ${activePrivateChatId === chat.id && activeTab === 'private' ? 'bg-neonPink/20 border border-neonPink/30 text-white' : 'hover:bg-white/5 text-gray-300'}`}
+                                >
+                                    <p className="font-bold text-sm">{chat.name}</p>
+                                    <p className="text-xs text-gray-500 truncate">Cliquez pour ouvrir</p>
+                                </button>
+                            ))}
+                        </div>
+                    </div>
                 )}
             </div>
 
-            <div className="relative grid grid-cols-1 md:grid-cols-2 gap-8 md:gap-20 items-center mb-20">
-                <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-20 flex flex-col items-center">
-                    <div className="w-20 h-20 bg-black border-2 border-white/20 rounded-full flex items-center justify-center shadow-[0_0_30px_rgba(255,255,255,0.2)]">
-                        <span className="font-display font-black text-3xl text-white italic">VS</span>
+            {/* Main Content */}
+            <div className="flex-1 min-w-0">
+                <div className="text-center mb-12">
+                    <h1 className="text-5xl md:text-7xl font-display font-black text-white mb-6 tracking-tighter">
+                        LE <span className="text-transparent bg-clip-text bg-gradient-to-r from-neonPink to-neonPurple">SALON</span>
+                    </h1>
+
+                    <div className="flex flex-wrap justify-center gap-4 mb-8">
+                        <button
+                            onClick={() => setActiveTab('versus')}
+                            className={`px-6 py-3 rounded-full font-bold tracking-wide transition-all flex items-center gap-2 ${activeTab === 'versus' ? 'bg-neonPink text-white shadow-[0_0_20px_rgba(247,37,133,0.4)]' : 'bg-white/5 text-gray-400 hover:bg-white/10'}`}
+                        >
+                            <Swords size={18} /> VERSUS
+                        </button>
+                        <button
+                            onClick={() => setActiveTab('ota')}
+                            className={`px-6 py-3 rounded-full font-bold tracking-wide transition-all flex items-center gap-2 ${activeTab === 'ota' ? 'bg-neonPurple text-white shadow-[0_0_20px_rgba(114,9,183,0.4)]' : 'bg-white/5 text-gray-400 hover:bg-white/10'}`}
+                        >
+                            <Hash size={18} /> SALON OTA
+                        </button>
+                        <button
+                            onClick={() => setActiveTab('commerce')}
+                            className={`px-6 py-3 rounded-full font-bold tracking-wide transition-all flex items-center gap-2 ${activeTab === 'commerce' ? 'bg-cyanLight text-black shadow-[0_0_20px_rgba(76,201,240,0.4)]' : 'bg-white/5 text-gray-400 hover:bg-white/10'}`}
+                        >
+                            <ShoppingBag size={18} /> COMMERCE
+                        </button>
+                        <button
+                            onClick={() => setActiveTab('all-for-one')}
+                            className={`px-6 py-3 rounded-full font-bold tracking-wide transition-all flex items-center gap-2 ${activeTab === 'all-for-one' ? 'bg-white text-black shadow-[0_0_20px_rgba(255,255,255,0.4)]' : 'bg-white/5 text-gray-400 hover:bg-white/10'}`}
+                        >
+                            <Globe size={18} /> ALL FOR ONE
+                        </button>
                     </div>
                 </div>
-                <CandidateCard candidate={duel.candidateA} votes={duel.votesA} percent={percentA} hasVoted={hasVoted} onVote={() => handleVote('A')} isWinner={hasVoted && duel.votesA > duel.votesB} color="neonPink" canVote={!!user} />
-                <CandidateCard candidate={duel.candidateB} votes={duel.votesB} percent={percentB} hasVoted={hasVoted} onVote={() => handleVote('B')} isWinner={hasVoted && duel.votesB > duel.votesA} color="cyanLight" canVote={!!user} />
-            </div>
 
-            <div className="max-w-3xl mx-auto bg-midnight/30 border border-white/10 rounded-2xl p-8 backdrop-blur-sm mb-20">
-                <div className="flex items-center gap-3 mb-8">
-                    <MessageSquare className="text-white" />
-                    <h3 className="text-2xl font-display font-bold text-white">Débats de la Communauté</h3>
-                </div>
-                {user && (
-                    <form onSubmit={handlePostComment} className="mb-8 flex gap-4">
-                        <input type="text" value={newComment} onChange={(e) => setNewComment(e.target.value)} placeholder="Ajouter un argument..." disabled={isSubmitting} className="flex-1 bg-black/30 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-neonPurple/50 transition-colors disabled:opacity-50" />
-                        <button type="submit" disabled={!newComment.trim() || isSubmitting} className="px-6 py-3 bg-neonPurple/20 hover:bg-neonPurple/40 text-neonPurple border border-neonPurple/30 rounded-xl font-bold transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
-                            {isSubmitting ? <Loader size={20} className="animate-spin" /> : <Send size={20} />}
-                        </button>
-                    </form>
-                )}
-                <div className="space-y-6">
-                    {comments.map(comment => (
-                        <Comment
-                            key={comment.id}
-                            author={comment.authorName}
-                            text={comment.text}
-                            time={getTimeAgo(comment.createdAt)}
-                            userId={comment.userId}
-                            currentUserId={user?.id}
-                            onDelete={() => handleDeleteComment(comment.id)}
-                        />
-                    ))}
-                </div>
+                <AnimatePresence mode="wait">
+                    {activeTab === 'versus' ? (
+                        <motion.div
+                            key="versus"
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: -20 }}
+                            transition={{ duration: 0.3 }}
+                        >
+                            {loading ? (
+                                <div className="flex justify-center py-20"><Loader className="animate-spin text-neonPink" /></div>
+                            ) : !duel ? (
+                                <div className="text-center py-20 text-gray-400">Aucun duel actif. <button onClick={() => setIsCreateModalOpen(true)} className="text-neonPink hover:underline">Créer un duel ?</button></div>
+                            ) : (
+                                <>
+                                    <div className="text-center mb-8">
+                                        <p className="text-gray-400 max-w-2xl mx-auto text-lg">
+                                            Chaque week-end, deux légendes s'affrontent. La communauté décide.
+                                        </p>
+                                        {user && (
+                                            <button onClick={() => setIsCreateModalOpen(true)} className="mt-4 inline-flex items-center gap-2 px-6 py-3 bg-white/5 hover:bg-white/10 border border-white/20 rounded-full text-white font-display font-bold tracking-wide transition-all hover:scale-105">
+                                                <Plus size={18} /> CRÉER UN DUEL
+                                            </button>
+                                        )}
+                                    </div>
+
+                                    <div className="relative grid grid-cols-1 md:grid-cols-2 gap-8 md:gap-20 items-center mb-20">
+                                        <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-20 flex flex-col items-center">
+                                            <div className="w-20 h-20 bg-black border-2 border-white/20 rounded-full flex items-center justify-center shadow-[0_0_30px_rgba(255,255,255,0.2)]">
+                                                <span className="font-display font-black text-3xl text-white italic">VS</span>
+                                            </div>
+                                        </div>
+                                        <CandidateCard candidate={duel.candidateA} votes={duel.votesA} percent={duel.votesA + duel.votesB === 0 ? 0 : Math.round((duel.votesA / (duel.votesA + duel.votesB)) * 100)} hasVoted={hasVoted} onVote={() => handleVote('A')} isWinner={hasVoted && duel.votesA > duel.votesB} color="neonPink" canVote={!!user} />
+                                        <CandidateCard candidate={duel.candidateB} votes={duel.votesB} percent={duel.votesA + duel.votesB === 0 ? 0 : Math.round((duel.votesB / (duel.votesA + duel.votesB)) * 100)} hasVoted={hasVoted} onVote={() => handleVote('B')} isWinner={hasVoted && duel.votesB > duel.votesA} color="cyanLight" canVote={!!user} />
+                                    </div>
+
+                                    <div className="max-w-3xl mx-auto bg-midnight/30 border border-white/10 rounded-2xl p-8 backdrop-blur-sm mb-20">
+                                        <div className="flex items-center gap-3 mb-8">
+                                            <MessageSquare className="text-white" />
+                                            <h3 className="text-2xl font-display font-bold text-white">Débats de la Communauté</h3>
+                                        </div>
+                                        {user && (
+                                            <form onSubmit={handlePostComment} className="mb-8 flex gap-4">
+                                                <input type="text" value={newComment} onChange={(e) => setNewComment(e.target.value)} placeholder="Ajouter un argument..." disabled={isSubmitting} className="flex-1 bg-black/30 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-neonPurple/50 transition-colors disabled:opacity-50" />
+                                                <button type="submit" disabled={!newComment.trim() || isSubmitting} className="px-6 py-3 bg-neonPurple/20 hover:bg-neonPurple/40 text-neonPurple border border-neonPurple/30 rounded-xl font-bold transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+                                                    {isSubmitting ? <Loader size={20} className="animate-spin" /> : <Send size={20} />}
+                                                </button>
+                                            </form>
+                                        )}
+                                        <div className="space-y-6">
+                                            {comments.map(comment => (
+                                                <Comment
+                                                    key={comment.id}
+                                                    author={comment.authorName}
+                                                    text={comment.text}
+                                                    time={getTimeAgo(comment.createdAt)}
+                                                    userId={comment.userId}
+                                                    currentUserId={user?.id}
+                                                    onDelete={() => handleDeleteComment(comment.id)}
+                                                />
+                                            ))}
+                                        </div>
+                                    </div>
+                                </>
+                            )}
+                        </motion.div>
+                    ) : activeTab === 'private' && activePrivateChatId ? (
+                        <motion.div
+                            key="private-chat"
+                            initial={{ opacity: 0, x: 20 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            exit={{ opacity: 0, x: -20 }}
+                            transition={{ duration: 0.3 }}
+                            className="max-w-4xl mx-auto"
+                        >
+                            {getPrivateChatById(activePrivateChatId) ? (
+                                <ChatRoom channel={getPrivateChatById(activePrivateChatId)!} />
+                            ) : (
+                                <div className="text-center py-20 text-gray-400">Chat introuvable ou chargement...</div>
+                            )}
+                        </motion.div>
+                    ) : (
+                        <motion.div
+                            key="chat"
+                            initial={{ opacity: 0, x: 20 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            exit={{ opacity: 0, x: -20 }}
+                            transition={{ duration: 0.3 }}
+                            className="max-w-4xl mx-auto"
+                        >
+                            {getChannelBySlug(activeTab) ? (
+                                <ChatRoom channel={getChannelBySlug(activeTab)!} />
+                            ) : (
+                                <div className="text-center py-20">
+                                    <Loader className="animate-spin mx-auto mb-4 text-neonPink" />
+                                    <p className="text-gray-400">Chargement du salon...</p>
+                                </div>
+                            )}
+                        </motion.div>
+                    )}
+                </AnimatePresence>
             </div>
 
             <AnimatePresence>
