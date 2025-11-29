@@ -21,7 +21,23 @@ export interface ChannelMessage {
     deleted_at?: string;
 }
 
-// ... getChannels ...
+/**
+ * Fetch all public channels
+ */
+export const getChannels = async (): Promise<Channel[]> => {
+    const { data, error } = await supabase
+        .from('channels')
+        .select('*')
+        .eq('type', 'public')
+        .order('name');
+
+    if (error) {
+        console.error('Error fetching channels:', error);
+        return [];
+    }
+
+    return data;
+};
 
 /**
  * Fetch messages for a specific channel

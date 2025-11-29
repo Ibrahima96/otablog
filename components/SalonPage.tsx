@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Trophy, Swords, MessageSquare, ThumbsUp, User, Plus, X, Send, Loader, Trash2, Hash, ShoppingBag, Globe, MessageCircle } from 'lucide-react';
+import { Trophy, Swords, MessageSquare, ThumbsUp, User, Plus, X, Send, Loader, Trash2, Hash, ShoppingBag, Globe, MessageCircle, Menu, ChevronLeft, ChevronRight } from 'lucide-react';
 import FloatingChat from './FloatingChat';
 import ChatRoom from './ChatRoom';
 import OnlineUsersList from './OnlineUsersList';
@@ -16,6 +16,8 @@ const SalonPage: React.FC = () => {
     const [channels, setChannels] = useState<chatService.Channel[]>([]);
     const [privateChats, setPrivateChats] = useState<chatService.Channel[]>([]);
     const [activePrivateChatId, setActivePrivateChatId] = useState<string | null>(null);
+    const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+    const [sidebarTab, setSidebarTab] = useState<'users' | 'messages'>('users');
 
     // Versus State
     const [duel, setDuel] = useState<Duel | null>(null);
@@ -231,39 +233,118 @@ const SalonPage: React.FC = () => {
                 )}
             </div>
 
+            {/* Mobile Sidebar Drawer */}
+            <AnimatePresence>
+                {isSidebarOpen && (
+                    <>
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            onClick={() => setIsSidebarOpen(false)}
+                            className="fixed inset-0 bg-black/80 z-40 lg:hidden backdrop-blur-sm"
+                        />
+                        <motion.div
+                            initial={{ x: '-100%' }}
+                            animate={{ x: 0 }}
+                            exit={{ x: '-100%' }}
+                            transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+                            className="fixed top-0 left-0 bottom-0 w-80 bg-[#0a0a0a] border-r border-white/10 z-50 p-6 overflow-y-auto lg:hidden"
+                        >
+                            <div className="flex justify-between items-center mb-6">
+                                <h2 className="text-2xl font-display font-bold text-white">Menu</h2>
+                                <button onClick={() => setIsSidebarOpen(false)} className="p-2 text-gray-400 hover:text-white">
+                                    <ChevronLeft size={24} />
+                                </button>
+                            </div>
+
+                            {/* Mobile Tabs */}
+                            <div className="flex p-1 bg-white/5 rounded-xl mb-6">
+                                <button
+                                    onClick={() => setSidebarTab('users')}
+                                    className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${sidebarTab === 'users' ? 'bg-neonPink text-white shadow-lg' : 'text-gray-400 hover:text-white'}`}
+                                >
+                                    Utilisateurs
+                                </button>
+                                <button
+                                    onClick={() => setSidebarTab('messages')}
+                                    className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${sidebarTab === 'messages' ? 'bg-neonPurple text-white shadow-lg' : 'text-gray-400 hover:text-white'}`}
+                                >
+                                    Messages
+                                </button>
+                            </div>
+
+                            <div className="space-y-4">
+                                {sidebarTab === 'users' ? (
+                                    <OnlineUsersList onUserClick={(id) => { handleUserClick(id); setIsSidebarOpen(false); }} />
+                                ) : (
+                                    <div className="bg-midnight/30 border border-white/10 rounded-2xl overflow-hidden backdrop-blur-sm p-4">
+                                        <h3 className="text-lg font-display font-bold text-white mb-4 flex items-center gap-2">
+                                            <MessageCircle size={20} className="text-neonPink" />
+                                            Mes Messages
+                                        </h3>
+                                        {user && privateChats.length > 0 ? (
+                                            <div className="space-y-2">
+                                                {privateChats.map(chat => (
+                                                    <button
+                                                        key={chat.id}
+                                                        onClick={() => { setActivePrivateChatId(chat.id); setActiveTab('private'); setIsSidebarOpen(false); }}
+                                                        className={`w-full text-left p-3 rounded-xl transition-colors ${activePrivateChatId === chat.id && activeTab === 'private' ? 'bg-neonPink/20 border border-neonPink/30 text-white' : 'hover:bg-white/5 text-gray-300'}`}
+                                                    >
+                                                        <p className="font-bold text-sm">{chat.name}</p>
+                                                        <p className="text-xs text-gray-500 truncate">Cliquez pour ouvrir</p>
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        ) : (
+                                            <p className="text-gray-400 text-sm italic">Aucun message privé.</p>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+                        </motion.div>
+                    </>
+                )}
+            </AnimatePresence>
+
             {/* Main Content */}
             <div className="flex-1 min-w-0">
-                <div className="text-center mb-12">
-                    <h1 className="text-5xl md:text-7xl font-display font-black text-white mb-6 tracking-tighter">
-                        LE <span className="text-transparent bg-clip-text bg-gradient-to-r from-neonPink to-neonPurple">SALON</span>
-                    </h1>
-
-                    <div className="flex flex-wrap justify-center gap-4 mb-8">
-                        <button
-                            onClick={() => setActiveTab('versus')}
-                            className={`px-6 py-3 rounded-full font-bold tracking-wide transition-all flex items-center gap-2 ${activeTab === 'versus' ? 'bg-neonPink text-white shadow-[0_0_20px_rgba(247,37,133,0.4)]' : 'bg-white/5 text-gray-400 hover:bg-white/10'}`}
-                        >
-                            <Swords size={18} /> VERSUS
-                        </button>
-                        <button
-                            onClick={() => setActiveTab('ota')}
-                            className={`px-6 py-3 rounded-full font-bold tracking-wide transition-all flex items-center gap-2 ${activeTab === 'ota' ? 'bg-neonPurple text-white shadow-[0_0_20px_rgba(114,9,183,0.4)]' : 'bg-white/5 text-gray-400 hover:bg-white/10'}`}
-                        >
-                            <Hash size={18} /> SALON OTA
-                        </button>
-                        <button
-                            onClick={() => setActiveTab('commerce')}
-                            className={`px-6 py-3 rounded-full font-bold tracking-wide transition-all flex items-center gap-2 ${activeTab === 'commerce' ? 'bg-cyanLight text-black shadow-[0_0_20px_rgba(76,201,240,0.4)]' : 'bg-white/5 text-gray-400 hover:bg-white/10'}`}
-                        >
-                            <ShoppingBag size={18} /> COMMERCE
-                        </button>
-                        <button
-                            onClick={() => setActiveTab('all-for-one')}
-                            className={`px-6 py-3 rounded-full font-bold tracking-wide transition-all flex items-center gap-2 ${activeTab === 'all-for-one' ? 'bg-white text-black shadow-[0_0_20px_rgba(255,255,255,0.4)]' : 'bg-white/5 text-gray-400 hover:bg-white/10'}`}
-                        >
-                            <Globe size={18} /> ALL FOR ONE
+                <div className="relative text-center mb-8 md:mb-12 pt-4 md:pt-0">
+                    <div className="lg:hidden absolute left-0 top-1/2 -translate-y-1/2">
+                        <button onClick={() => setIsSidebarOpen(true)} className="p-2 text-white hover:bg-white/10 rounded-xl transition-colors">
+                            <ChevronRight size={28} />
                         </button>
                     </div>
+                    <h1 className="text-4xl md:text-7xl font-display font-black text-white tracking-tighter inline-block">
+                        LE <span className="text-transparent bg-clip-text bg-gradient-to-r from-neonPink to-neonPurple">SALON</span>
+                    </h1>
+                </div>
+
+                <div className="flex flex-wrap justify-center gap-4 mb-8">
+                    <button
+                        onClick={() => setActiveTab('versus')}
+                        className={`px-6 py-3 rounded-full font-bold tracking-wide transition-all flex items-center gap-2 ${activeTab === 'versus' ? 'bg-neonPink text-white shadow-[0_0_20px_rgba(247,37,133,0.4)]' : 'bg-white/5 text-gray-400 hover:bg-white/10'}`}
+                    >
+                        <Swords size={18} /> VERSUS
+                    </button>
+                    <button
+                        onClick={() => setActiveTab('ota')}
+                        className={`px-6 py-3 rounded-full font-bold tracking-wide transition-all flex items-center gap-2 ${activeTab === 'ota' ? 'bg-neonPurple text-white shadow-[0_0_20px_rgba(114,9,183,0.4)]' : 'bg-white/5 text-gray-400 hover:bg-white/10'}`}
+                    >
+                        <Hash size={18} /> SALON OTA
+                    </button>
+                    <button
+                        onClick={() => setActiveTab('commerce')}
+                        className={`px-6 py-3 rounded-full font-bold tracking-wide transition-all flex items-center gap-2 ${activeTab === 'commerce' ? 'bg-cyanLight text-black shadow-[0_0_20px_rgba(76,201,240,0.4)]' : 'bg-white/5 text-gray-400 hover:bg-white/10'}`}
+                    >
+                        <ShoppingBag size={18} /> COMMERCE
+                    </button>
+                    <button
+                        onClick={() => setActiveTab('all-for-one')}
+                        className={`px-6 py-3 rounded-full font-bold tracking-wide transition-all flex items-center gap-2 ${activeTab === 'all-for-one' ? 'bg-white text-black shadow-[0_0_20px_rgba(255,255,255,0.4)]' : 'bg-white/5 text-gray-400 hover:bg-white/10'}`}
+                    >
+                        <Globe size={18} /> ALL FOR ONE
+                    </button>
                 </div>
 
                 <AnimatePresence mode="wait">
@@ -367,7 +448,7 @@ const SalonPage: React.FC = () => {
                         </motion.div>
                     )}
                 </AnimatePresence>
-            </div>
+            </div >
 
             <AnimatePresence>
                 {isCreateModalOpen && (
@@ -463,7 +544,7 @@ const SalonPage: React.FC = () => {
                 )}
             </AnimatePresence>
             <FloatingChat />
-        </div>
+        </div >
     );
 };
 

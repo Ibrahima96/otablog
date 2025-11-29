@@ -178,7 +178,7 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ channel }) => {
     }
 
     return (
-        <div className="flex flex-col h-[600px] bg-midnight/30 border border-white/10 rounded-2xl overflow-hidden backdrop-blur-sm" onClick={() => setActiveMenuId(null)}>
+        <div className="flex flex-col h-[calc(100vh-220px)] md:h-[600px] lg:h-[700px] bg-midnight/30 border border-white/10 rounded-2xl overflow-hidden backdrop-blur-sm" onClick={() => setActiveMenuId(null)}>
             {/* Header */}
             <div className="p-4 border-b border-white/10 bg-black/20">
                 <h3 className="text-xl font-display font-bold text-white">{channel.name}</h3>
@@ -272,35 +272,54 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ channel }) => {
             </div>
 
             {/* Input Area */}
-            <div className="p-4 border-t border-white/10 bg-black/20">
+            <div className="p-3 md:p-4 border-t border-white/10 bg-black/40 backdrop-blur-md">
                 {user ? (
-                    <div className="flex gap-3 items-center">
+                    <div className="flex gap-2 md:gap-3 items-end">
                         {isRecording ? (
-                            <div className="flex-1 flex items-center gap-4 bg-red-500/20 border border-red-500/50 rounded-xl px-4 py-3 animate-pulse">
+                            <div className="flex-1 flex items-center gap-4 bg-red-500/20 border border-red-500/50 rounded-2xl px-4 py-3 animate-pulse">
                                 <div className="w-3 h-3 rounded-full bg-red-500 animate-ping" />
                                 <span className="text-red-500 font-mono font-bold">{formatTime(recordingTime)}</span>
                                 <span className="text-white text-sm flex-1 text-center">Enregistrement...</span>
-                                <button onClick={stopRecording} className="p-2 bg-red-500 text-white rounded-full hover:scale-110 transition-transform"><Square size={16} fill="currentColor" /></button>
+                                <button onClick={stopRecording} className="p-2 bg-red-500 text-white rounded-full hover:scale-110 transition-transform shadow-lg shadow-red-500/30"><Square size={16} fill="currentColor" /></button>
                             </div>
                         ) : (
                             <>
                                 <input type="file" ref={fileInputRef} onChange={handleImageUpload} accept="image/*" className="hidden" />
-                                <button onClick={() => fileInputRef.current?.click()} disabled={isUploading} className="p-3 bg-white/10 hover:bg-white/20 text-white rounded-xl transition-colors border border-white/10 disabled:opacity-50">
+                                <button
+                                    onClick={() => fileInputRef.current?.click()}
+                                    disabled={isUploading}
+                                    className="p-3 bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white rounded-full transition-colors border border-white/5 disabled:opacity-50 flex-shrink-0"
+                                >
                                     {isUploading ? <Loader size={20} className="animate-spin" /> : <ImageIcon size={20} />}
                                 </button>
-                                <form onSubmit={handleSendMessage} className="flex-1 flex gap-3">
+
+                                <form onSubmit={handleSendMessage} className="flex-1 bg-white/5 border border-white/10 rounded-2xl flex items-center px-4 py-2 focus-within:border-neonPink/50 focus-within:bg-white/10 transition-all">
                                     <input
                                         type="text"
                                         value={newMessage}
                                         onChange={(e) => setNewMessage(e.target.value)}
-                                        placeholder={`Message dans #${channel.slug}...`}
-                                        className="flex-1 bg-black/30 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-neonPink/50 transition-colors"
+                                        placeholder={`Message...`}
+                                        className="flex-1 bg-transparent text-white placeholder-gray-500 focus:outline-none min-w-0 py-1"
                                     />
-                                    <button type="submit" disabled={!newMessage.trim()} className="px-4 py-2 bg-neonPink hover:bg-neonPink/80 text-white rounded-xl font-bold transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center">
+                                </form>
+
+                                {newMessage.trim() ? (
+                                    <button
+                                        onClick={handleSendMessage}
+                                        disabled={!newMessage.trim()}
+                                        className="p-3 bg-neonPink hover:bg-neonPink/80 text-white rounded-full shadow-lg shadow-neonPink/20 transition-all hover:scale-105 active:scale-95 flex-shrink-0"
+                                    >
                                         <Send size={20} />
                                     </button>
-                                </form>
-                                <button onClick={startRecording} className="p-3 bg-white/10 hover:bg-white/20 text-white rounded-xl transition-colors border border-white/10" title="Message vocal"><Mic size={20} /></button>
+                                ) : (
+                                    <button
+                                        onClick={startRecording}
+                                        className="p-3 bg-neonPurple hover:bg-neonPurple/80 text-white rounded-full shadow-lg shadow-neonPurple/20 transition-all hover:scale-105 active:scale-95 flex-shrink-0"
+                                        title="Message vocal"
+                                    >
+                                        <Mic size={20} />
+                                    </button>
+                                )}
                             </>
                         )}
                     </div>

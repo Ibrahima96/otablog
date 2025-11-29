@@ -96,7 +96,7 @@ const FloatingChat: React.FC = () => {
                 whileHover={{ scale: 1.1 }}
                 whileTap={{ scale: 0.9 }}
                 onClick={() => setIsOpen(true)}
-                className={`fixed bottom-6 right-6 z-40 w-14 h-14 rounded-full bg-gradient-to-r from-neonPurple to-neonPink flex items-center justify-center shadow-[0_0_20px_rgba(247,37,133,0.5)] border border-white/20 ${isOpen ? 'hidden' : 'flex'}`}
+                className={`fixed bottom-24 right-6 lg:bottom-6 lg:right-6 z-40 w-14 h-14 rounded-full bg-gradient-to-r from-neonPurple to-neonPink flex items-center justify-center shadow-[0_0_20px_rgba(247,37,133,0.5)] border border-white/20 ${isOpen ? 'hidden' : 'flex'}`}
             >
                 <Bot className="text-white w-7 h-7" />
                 <div className="absolute -top-1 -right-1 w-4 h-4 bg-green-400 rounded-full border-2 border-[#0a0a0a] animate-pulse" />
