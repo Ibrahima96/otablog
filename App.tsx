@@ -37,7 +37,7 @@ const Hero = ({ onOpenAuth }: { onOpenAuth: () => void }) => {
         </p>
 
         <p className="max-w-2xl mx-auto text-gray-400 mb-10 text-lg leading-relaxed">
-          Rejoignez le réseau d'élite des créateurs, fans et futur istes.
+          Rejoignez le réseau d'élite des créateurs, fans et futuristes.
           Discussions immersives, galeries néon et interactions IA.
         </p>
 

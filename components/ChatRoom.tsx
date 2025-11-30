@@ -293,6 +293,16 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ channel }) => {
                                     {isUploading ? <Loader size={20} className="animate-spin" /> : <ImageIcon size={20} />}
                                 </button>
 
+                                {!newMessage.trim() && (
+                                    <button
+                                        onClick={startRecording}
+                                        className="md:hidden p-3 bg-neonPurple hover:bg-neonPurple/80 text-white rounded-full shadow-lg shadow-neonPurple/20 transition-all hover:scale-105 active:scale-95 flex-shrink-0"
+                                        title="Message vocal"
+                                    >
+                                        <Mic size={20} />
+                                    </button>
+                                )}
+
                                 <form onSubmit={handleSendMessage} className="flex-1 bg-white/5 border border-white/10 rounded-2xl flex items-center px-4 py-2 focus-within:border-neonPink/50 focus-within:bg-white/10 transition-all">
                                     <input
                                         type="text"
@@ -314,7 +324,7 @@ const ChatRoom: React.FC<ChatRoomProps> = ({ channel }) => {
                                 ) : (
                                     <button
                                         onClick={startRecording}
-                                        className="p-3 bg-neonPurple hover:bg-neonPurple/80 text-white rounded-full shadow-lg shadow-neonPurple/20 transition-all hover:scale-105 active:scale-95 flex-shrink-0"
+                                        className="hidden md:block p-3 bg-neonPurple hover:bg-neonPurple/80 text-white rounded-full shadow-lg shadow-neonPurple/20 transition-all hover:scale-105 active:scale-95 flex-shrink-0"
                                         title="Message vocal"
                                     >
                                         <Mic size={20} />
