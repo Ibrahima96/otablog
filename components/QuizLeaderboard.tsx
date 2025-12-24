@@ -66,7 +66,7 @@ const QuizLeaderboard: React.FC<QuizLeaderboardProps> = ({ scores = [], onPlayAg
                                 onClick={onShare}
                                 className="flex items-center gap-2 bg-white/10 hover:bg-white/20 px-4 py-2 rounded-full text-sm font-bold transition-all text-white border border-white/5"
                             >
-                                <Share2 size={16} /> Retour
+                                 Retour
                             </button>
                         </div>
                     )}
