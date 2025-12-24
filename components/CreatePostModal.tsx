@@ -119,6 +119,7 @@ const CreatePostModal: React.FC<CreatePostModalProps> = ({ isOpen, onClose, onPo
                     title,
                     description: caption,
                     price: parseFloat(price),
+                    currency: 'FCFA',
                     category,
                     whatsappNumber: whatsappNumber || undefined
                 };
@@ -409,7 +410,7 @@ const CreatePostModal: React.FC<CreatePostModalProps> = ({ isOpen, onClose, onPo
                                                             />
                                                         </div>
                                                         <div className="space-y-2">
-                                                            <label className="text-xs text-gray-400 font-bold uppercase tracking-wide">Prix (€) *</label>
+                                                            <label className="text-xs text-gray-400 font-bold uppercase tracking-wide">Prix (FCFA) *</label>
                                                             <div className="relative">
                                                                 <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" size={18} />
                                                                 <input
@@ -419,7 +420,7 @@ const CreatePostModal: React.FC<CreatePostModalProps> = ({ isOpen, onClose, onPo
                                                                     onChange={(e) => setPrice(e.target.value)}
                                                                     disabled={isUploading}
                                                                     className="w-full bg-white/5 border border-white/10 rounded-lg py-3 pl-10 pr-4 text-white focus:outline-none focus:border-neonPink transition-all placeholder-gray-600 disabled:opacity-50"
-                                                                    placeholder="25"
+                                                                    placeholder="5000"
                                                                     required
                                                                 />
                                                             </div>
