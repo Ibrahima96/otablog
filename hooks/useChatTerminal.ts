@@ -245,11 +245,33 @@ export const useChatTerminal = ({ initialMessage, user, lastGameResult }: UseCha
             }
 
             // ... switch case logic (omitted for brevity in prompt, but assuming it exists)
+            // GUIDE COMMAND
+            if (command === '/guide') {
+                const guideSteps = [
+                    "🚀 **INITIALISATION DU PROTOCOLE GUIDE**...",
+                    "1. **TERMINAL** : Votre hub central. Utilisez les commandes `/` pour interagir avec le système.",
+                    "2. **DUELS IA** : Tapez `/duel [sujet]` pour que l'IA génère un quiz personnalisé. Marquez des points pour grimper au classement.",
+                    "3. **COMMUNAUTÉ** : Partagez vos découvertes dans la section OtaBlog et gagnez de la réputation.",
+                    "4. **DÉFIS QUOTIDIENS** : Revenez chaque jour pour des énigmes et des bonus exclusifs.",
+                    "🏁 **PRÊT ?** Tapez `/help` pour voir toutes les commandes ou lancez votre premier `/solo` !"
+                ];
+
+                for (const step of guideSteps) {
+                    setMessages(prev => [...prev, {
+                        id: Date.now().toString() + Math.random(),
+                        role: 'model',
+                        text: step
+                    }]);
+                    await new Promise(resolve => setTimeout(resolve, 800));
+                }
+                return true;
+            }
+
             switch (command) {
                 case '/clear': clearHistory(); return true;
                 case '/matrix': setIsMatrixMode(prev => !prev);
                     setMessages(prev => [...prev, { id: Date.now().toString(), role: 'model', text: isMatrixMode ? 'Matrice désactivée.' : 'Matrice activée.' }]); return true;
-                case '/help': setMessages(prev => [...prev, { id: Date.now().toString(), role: 'model', text: `COMMANDES DISPONIBLES:\n> /duel [sujet]\n> /solo [sujet]\n> /join [code]\n> /clear\n> /matrix\n> /system\n> /help` }]); return true;
+                case '/help': setMessages(prev => [...prev, { id: Date.now().toString(), role: 'model', text: `COMMANDES DISPONIBLES:\n> /duel [sujet]\n> /solo [sujet]\n> /join [code]\n> /guide\n> /clear\n> /matrix\n> /system\n> /help` }]); return true;
                 case '/system': setMessages(prev => [...prev, { id: Date.now().toString(), role: 'model', text: `STATS SYSTÈME: [ONLINE]` }]); return true;
             }
 

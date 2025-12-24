@@ -27,6 +27,7 @@ const TerminalChat = React.lazy(() => import('./components/TerminalChat'));
 const AuthModal = React.lazy(() => import('./components/AuthModal'));
 const Community = React.lazy(() => import('./components/Community'));
 const AnimeQuizPage = React.lazy(() => import('./components/AnimeQuizPage'));
+const NeuralGuide = React.lazy(() => import('./components/NeuralGuide'));
 
 const LoadingScreen = () => (
   <div className="flex items-center justify-center min-h-[50vh]">
@@ -299,6 +300,7 @@ const Footer = () => (
 
 const AppContent: React.FC = () => {
   const [isAuthOpen, setIsAuthOpen] = useState(false);
+  const [isGuideOpen, setIsGuideOpen] = useState(false);
   const [currentView, setCurrentView] = useState<'home' | 'quiz'>('home');
   const { session, user } = useAuth(); // Destructure user for username
   const [customQuizData, setCustomQuizData] = useState<any>(null);
@@ -308,6 +310,12 @@ const AppContent: React.FC = () => {
 
   useEffect(() => {
     loadData();
+    // Check if it's the first visit
+    const hasSeenGuide = localStorage.getItem('otablog_guide_seen');
+    if (!hasSeenGuide) {
+      setTimeout(() => setIsGuideOpen(true), 1500);
+      localStorage.setItem('otablog_guide_seen', 'true');
+    }
   }, []);
 
   const loadData = async () => {
@@ -391,6 +399,10 @@ const AppContent: React.FC = () => {
         <Footer />
         <Suspense fallback={null}>
           <AuthModal isOpen={isAuthOpen} onClose={() => setIsAuthOpen(false)} />
+        </Suspense>
+
+        <Suspense fallback={null}>
+          {isGuideOpen && <NeuralGuide onClose={() => setIsGuideOpen(false)} />}
         </Suspense>
       </main>
     </ErrorBoundary>
