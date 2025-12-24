@@ -5,6 +5,10 @@ export interface ChatMessage {
   role: 'user' | 'model';
   text: string;
   isTyping?: boolean;
+  data?: {
+    type: 'duel_invite';
+    payload: any;
+  };
 }
 
 export interface GalleryItem {
@@ -30,6 +34,7 @@ export interface MarketplaceItem {
   price: number;
   category: 'article' | 'vetement' | 'accessoire' | 'autre';
   currency: string;
+  whatsappNumber?: string; // Numéro WhatsApp du vendeur pour contact direct
 }
 
 export interface CommunityPost {
@@ -66,38 +71,20 @@ export interface PostFilters {
   offset?: number;
 }
 
-// Salon/Duel Types
-export interface DuelCandidate {
-  name: string;
-  image: string;
-  description: string;
+// Quiz Types
+export interface QuizQuestion {
+  id: string;
+  question: string;
+  options: string[];
+  correctAnswer: number; // Index 0-3
+  category: 'shonen' | 'shojo' | 'seinen' | 'isekai' | 'general';
+  points: number;
 }
 
-export interface Duel {
-  id: string;
-  title: string;
-  candidateA: DuelCandidate;
-  candidateB: DuelCandidate;
-  isActive: boolean;
-  createdAt: Date;
-  createdBy: string;
-  votesA: number;
-  votesB: number;
-}
-
-export interface DuelVote {
-  id: string;
-  duelId: string;
+export interface QuizScore {
   userId: string;
-  candidate: 'A' | 'B';
-  createdAt: Date;
-}
-
-export interface DuelComment {
-  id: string;
-  duelId: string;
-  userId: string;
-  authorName: string;
-  text: string;
-  createdAt: Date;
+  username: string;
+  score: number;
+  avatarUrl?: string;
+  rank?: number;
 }

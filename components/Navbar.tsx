@@ -4,8 +4,8 @@ import { useAuth } from '../context/AuthContext';
 
 interface NavbarProps {
   onOpenAuth: () => void;
-  currentView?: 'home' | 'salon';
-  onNavigate?: (view: 'home' | 'salon') => void;
+  currentView?: 'home' | 'quiz';
+  onNavigate?: (view: 'home' | 'quiz') => void;
 }
 
 const Navbar: React.FC<NavbarProps> = ({ onOpenAuth, currentView = 'home', onNavigate }) => {
@@ -69,11 +69,11 @@ const Navbar: React.FC<NavbarProps> = ({ onOpenAuth, currentView = 'home', onNav
 
           {user && (
             <button
-              onClick={() => onNavigate?.('salon')}
-              className={`text-sm font-medium tracking-wide transition-colors relative ${currentView === 'salon' ? 'text-neonPink' : 'text-gray-300 hover:text-neonPink'
+              onClick={() => onNavigate?.('quiz')}
+              className={`text-sm font-medium tracking-wide transition-colors relative ${currentView === 'quiz' ? 'text-neonPink' : 'text-gray-300 hover:text-neonPink'
                 }`}
             >
-              SALON VERSUS
+              QUIZ BATTLE
             </button>
           )}
 
@@ -130,12 +130,12 @@ const Navbar: React.FC<NavbarProps> = ({ onOpenAuth, currentView = 'home', onNav
           {user && (
             <button
               onClick={() => {
-                onNavigate?.('salon');
+                onNavigate?.('quiz');
                 setIsOpen(false);
               }}
               className="text-xl text-neonPink font-display text-left"
             >
-              SALON VERSUS
+              QUIZ BATTLE
             </button>
           )}
 

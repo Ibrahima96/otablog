@@ -1,94 +1,240 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="fr">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>OtaBlog | Culture Otaku du Futur</title>
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
-    
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    
+
     <!-- Google Fonts -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&family=Noto+Sans+JP:wght@400;700&family=Orbitron:wght@400;700;900&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&family=Noto+Sans+JP:wght@400;700&family=Orbitron:wght@400;700;900&family=JetBrains+Mono:wght@400;700&display=swap"
+      rel="stylesheet"
+    />
 
     <script>
       tailwind.config = {
         theme: {
           extend: {
             colors: {
-              obsidian: '#0D0D0D',
-              midnight: '#111827',
-              neonPink: '#F72585',
-              neonPurple: '#7209B7',
-              electricBlue: '#4361EE',
-              cyanLight: '#4CC9F0',
+              obsidian: "#0D0D0D",
+              midnight: "#111827",
+              neonPink: "#F72585",
+              neonPurple: "#7209B7",
+              electricBlue: "#4361EE",
+              cyanLight: "#4CC9F0",
             },
             fontFamily: {
-              sans: ['Inter', 'sans-serif'],
-              display: ['Orbitron', 'sans-serif'],
-              jp: ['Noto Sans JP', 'sans-serif'],
-              mono: ['JetBrains Mono', 'monospace'],
+              sans: ["Inter", "sans-serif"],
+              display: ["Orbitron", "sans-serif"],
+              jp: ["Noto Sans JP", "sans-serif"],
+              mono: ["JetBrains Mono", "monospace"],
             },
             backgroundImage: {
-              'cyber-grid': "linear-gradient(to right, #1f2937 1px, transparent 1px), linear-gradient(to bottom, #1f2937 1px, transparent 1px)",
-            }
-          }
-        }
-      }
+              "cyber-grid":
+                "linear-gradient(to right, #1f2937 1px, transparent 1px), linear-gradient(to bottom, #1f2937 1px, transparent 1px)",
+            },
+          },
+        },
+      };
     </script>
     <style>
       body {
-        background-color: #0D0D0D;
+        background-color: #0d0d0d;
         color: white;
         overflow-x: hidden;
+        cursor: none;
       }
+
+      /* Hide default cursor on desktop only */
+      @media (hover: hover) {
+        * {
+          cursor: none !important;
+        }
+      }
+
       /* Custom Scrollbar */
       ::-webkit-scrollbar {
         width: 8px;
       }
       ::-webkit-scrollbar-track {
-        background: #0D0D0D; 
+        background: #0d0d0d;
       }
       ::-webkit-scrollbar-thumb {
-        background: #333; 
+        background: linear-gradient(180deg, #f72585 0%, #7209b7 100%);
         border-radius: 4px;
       }
       ::-webkit-scrollbar-thumb:hover {
-        background: #F72585; 
+        background: linear-gradient(180deg, #f72585 0%, #4cc9f0 100%);
       }
-      
+
+      /* Enhanced Glass Panel */
       .glass-panel {
         background: rgba(17, 24, 39, 0.4);
-        backdrop-filter: blur(12px);
-        -webkit-backdrop-filter: blur(12px);
-        border: 1px solid rgba(255, 255, 255, 0.05);
+        backdrop-filter: blur(16px) saturate(180%);
+        -webkit-backdrop-filter: blur(16px) saturate(180%);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        box-shadow:
+          0 8px 32px rgba(0, 0, 0, 0.3),
+          inset 0 1px 0 rgba(255, 255, 255, 0.05);
       }
-      
+
+      .glass-panel-light {
+        background: rgba(255, 255, 255, 0.05);
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+      }
+
+      /* Neon effects */
       .neon-glow {
-        box-shadow: 0 0 10px rgba(76, 201, 240, 0.3);
+        box-shadow:
+          0 0 10px rgba(76, 201, 240, 0.3),
+          0 0 20px rgba(76, 201, 240, 0.2),
+          0 0 40px rgba(76, 201, 240, 0.1);
       }
-      
+
+      .neon-glow-pink {
+        box-shadow:
+          0 0 10px rgba(247, 37, 133, 0.4),
+          0 0 20px rgba(247, 37, 133, 0.3),
+          0 0 40px rgba(247, 37, 133, 0.2);
+      }
+
       .neon-text-glow {
-        text-shadow: 0 0 10px rgba(247, 37, 133, 0.5);
+        text-shadow:
+          0 0 10px rgba(247, 37, 133, 0.5),
+          0 0 20px rgba(247, 37, 133, 0.3),
+          0 0 40px rgba(247, 37, 133, 0.2);
+      }
+
+      /* Shimmer animation */
+      @keyframes shimmer {
+        0% {
+          background-position: -200% 0;
+        }
+        100% {
+          background-position: 200% 0;
+        }
+      }
+
+      .shimmer {
+        background: linear-gradient(
+          90deg,
+          transparent 0%,
+          rgba(255, 255, 255, 0.1) 50%,
+          transparent 100%
+        );
+        background-size: 200% 100%;
+        animation: shimmer 2s infinite;
+      }
+
+      /* Pulse glow animation */
+      @keyframes pulseGlow {
+        0%,
+        100% {
+          box-shadow:
+            0 0 20px rgba(247, 37, 133, 0.3),
+            0 0 40px rgba(247, 37, 133, 0.1);
+        }
+        50% {
+          box-shadow:
+            0 0 30px rgba(247, 37, 133, 0.5),
+            0 0 60px rgba(247, 37, 133, 0.2);
+        }
+      }
+
+      .pulse-glow {
+        animation: pulseGlow 3s ease-in-out infinite;
+      }
+
+      /* Float animation */
+      @keyframes float {
+        0%,
+        100% {
+          transform: translateY(0px);
+        }
+        50% {
+          transform: translateY(-15px);
+        }
+      }
+
+      .float {
+        animation: float 5s ease-in-out infinite;
+      }
+
+      /* Gradient text animation */
+      @keyframes gradientShift {
+        0% {
+          background-position: 0% 50%;
+        }
+        50% {
+          background-position: 100% 50%;
+        }
+        100% {
+          background-position: 0% 50%;
+        }
+      }
+
+      .animated-gradient-text {
+        background: linear-gradient(90deg, #f72585, #7209b7, #4cc9f0, #f72585);
+        background-size: 300% 100%;
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        animation: gradientShift 4s ease infinite;
+      }
+
+      /* Interactive element indicator */
+      .interactive {
+        transition: all 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+      }
+
+      .interactive:hover {
+        transform: translateY(-2px);
+      }
+
+      /* Smooth page transitions */
+      .fade-in-up {
+        animation: fadeInUp 0.8s ease-out forwards;
+      }
+
+      @keyframes fadeInUp {
+        from {
+          opacity: 0;
+          transform: translateY(30px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      /* Selection styling */
+      ::selection {
+        background: rgba(247, 37, 133, 0.6);
+        color: white;
       }
     </style>
-  <script type="importmap">
-{
-  "imports": {
-    "react/": "https://aistudiocdn.com/react@^19.2.0/",
-    "react": "https://aistudiocdn.com/react@^19.2.0",
-    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
-    "framer-motion": "https://aistudiocdn.com/framer-motion@^12.23.24",
-    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.30.0",
-    "lucide-react": "https://aistudiocdn.com/lucide-react@^0.554.0",
-    "@supabase/supabase-js": "https://aistudiocdn.com/@supabase/supabase-js@^2.39.3"
-  }
-}
-</script>
-</head>
+    <script type="importmap">
+      {
+        "imports": {
+          "react/": "https://aistudiocdn.com/react@^19.2.0/",
+          "react": "https://aistudiocdn.com/react@^19.2.0",
+          "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
+          "framer-motion": "https://aistudiocdn.com/framer-motion@^12.23.24",
+          "@google/genai": "https://aistudiocdn.com/@google/genai@^1.30.0",
+          "lucide-react": "https://aistudiocdn.com/lucide-react@^0.554.0",
+          "@supabase/supabase-js": "https://aistudiocdn.com/@supabase/supabase-js@^2.39.3"
+        }
+      }
+    </script>
+  </head>
   <body>
     <div id="root"></div>
     <script type="module" src="/index.tsx"></script>

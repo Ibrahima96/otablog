@@ -1,17 +1,35 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import Navbar from './components/Navbar';
 import FloatingGallery from './components/FloatingGallery';
-import TerminalChat from './components/TerminalChat';
-import AuthModal from './components/AuthModal';
-import Community from './components/Community';
 import PostModal from './components/PostModal';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { CartProvider } from './context/CartContext';
-import { ArrowRight, MessageSquare, Share2, Sparkles, Trophy, Heart, MessageCircle, ExternalLink } from 'lucide-react';
-import SalonPage from './components/SalonPage';
-import * as salonService from './services/salonService';
 import * as communityService from './services/communityService';
 import { CommunityPost } from './types';
+import './components/TerminalEffects.css';
+import { ArrowRight, MessageSquare, Share2, Sparkles, Trophy, Heart, MessageCircle, ExternalLink, Loader2 } from 'lucide-react';
+
+// Enhanced visual components - Memoized
+import StellarBackground from './components/StellarBackground';
+import FloatingOrbs from './components/FloatingOrbs';
+import MagneticCursor from './components/MagneticCursor';
+import EnhancedHero from './components/EnhancedHero';
+import EnhancedFeatures from './components/EnhancedFeatures';
+
+// Lazy load heavy components
+const TerminalChat = React.lazy(() => import('./components/TerminalChat'));
+const AuthModal = React.lazy(() => import('./components/AuthModal'));
+const Community = React.lazy(() => import('./components/Community'));
+const AnimeQuizPage = React.lazy(() => import('./components/AnimeQuizPage'));
+
+const LoadingScreen = () => (
+  <div className="flex items-center justify-center min-h-[50vh]">
+    <div className="relative">
+      <div className="absolute inset-0 bg-neonPink/20 blur-xl rounded-full"></div>
+      <Loader2 className="w-12 h-12 text-neonPink animate-spin relative z-10" />
+    </div>
+  </div>
+);
 
 const Hero = ({ onOpenAuth }: { onOpenAuth: () => void }) => {
   const { user } = useAuth();
@@ -274,64 +292,82 @@ const Footer = () => (
 
 const AppContent: React.FC = () => {
   const [isAuthOpen, setIsAuthOpen] = useState(false);
-  const [currentView, setCurrentView] = useState<'home' | 'salon'>('home');
+  const [currentView, setCurrentView] = useState<'home' | 'quiz'>('home');
   const { session } = useAuth();
-  const [champion, setChampion] = useState<{
-    name: string;
-    image: string;
-    description: string;
-    wins: number;
-  } | null>(null);
+  const [customQuizData, setCustomQuizData] = useState<any>(null);
   const [recentPosts, setRecentPosts] = useState<CommunityPost[]>([]);
 
   useEffect(() => {
-    loadChampion();
     loadRecentPosts();
   }, []);
-
-  const loadChampion = async () => {
-    const championData = await salonService.getChampion();
-    setChampion(championData);
-  };
 
   const loadRecentPosts = async () => {
     const posts = await communityService.getPosts({ limit: 3 });
     setRecentPosts(posts);
   };
 
+  const launchDuel = (questions: any) => {
+    setCustomQuizData(questions);
+    setCurrentView('quiz');
+  };
+
+  const handleGameComplete = (score: number) => {
+    setCurrentView('home');
+    setCustomQuizData(null);
+  };
+
   return (
-    <main className="bg-obsidian min-h-screen text-white selection:bg-neonPink selection:text-white">
+    <main className="bg-obsidian min-h-screen text-white selection:bg-neonPink selection:text-white relative">
+      {/* Global visual effects layer */}
+      <StellarBackground />
+      <FloatingOrbs />
+      <MagneticCursor />
+
       <Navbar
         onOpenAuth={() => setIsAuthOpen(true)}
         currentView={currentView}
         onNavigate={setCurrentView}
       />
 
-      {currentView === 'home' ? (
-        <>
-          <Hero onOpenAuth={() => setIsAuthOpen(true)} />
-          {session && <ChampionSection champion={champion} />}
-          <FloatingGallery />
-          <Features />
-          <Community onOpenAuth={() => setIsAuthOpen(true)} />
-          <TerminalChat onOpenAuth={() => setIsAuthOpen(true)} />
-          <RecentPostsPreview posts={recentPosts} onOpenAuth={() => setIsAuthOpen(true)} />
-        </>
-      ) : (
-        <SalonPage />
-      )}
+      <Suspense fallback={<LoadingScreen />}>
+        {currentView === 'home' ? (
+          <>
+            <EnhancedHero onOpenAuth={() => setIsAuthOpen(true)} isLoggedIn={!!session} />
+            {session && <ChampionSection champion={null} />}
+            <FloatingGallery />
+            <EnhancedFeatures onNavigate={setCurrentView} />
+            <Community onOpenAuth={() => setIsAuthOpen(true)} />
+            <TerminalChat
+              onOpenAuth={() => setIsAuthOpen(true)}
+              onLaunchDuel={launchDuel}
+            />
+            <RecentPostsPreview posts={recentPosts} onOpenAuth={() => setIsAuthOpen(true)} />
+          </>
+        ) : (
+          <AnimeQuizPage
+            initialQuestions={customQuizData}
+            onGameComplete={handleGameComplete}
+          />
+        )}
+      </Suspense>
 
       <Footer />
-      <AuthModal isOpen={isAuthOpen} onClose={() => setIsAuthOpen(false)} />
+      <Suspense fallback={null}>
+        <AuthModal isOpen={isAuthOpen} onClose={() => setIsAuthOpen(false)} />
+      </Suspense>
     </main>
   );
 };
+
+import { FeedbackOverseer } from './components/FeedbackOverseer';
 
 const App: React.FC = () => {
   return (
     <AuthProvider>
       <CartProvider>
-        <AppContent />
+        <FeedbackOverseer>
+          <AppContent />
+        </FeedbackOverseer>
       </CartProvider>
     </AuthProvider>
   );

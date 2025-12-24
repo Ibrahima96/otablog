@@ -16,6 +16,7 @@ export const createPost = async (
             description: string;
             price: number;
             category: string;
+            whatsappNumber?: string;
         }
     },
     userId: string,
@@ -91,7 +92,8 @@ export const getPostById = async (postId: string): Promise<CommunityPost> => {
         description,
         price,
         currency,
-        category
+        category,
+        whatsapp_number
       )
     `)
         .eq('id', postId)
@@ -116,7 +118,8 @@ export const getPosts = async (filters: PostFilters = {}): Promise<CommunityPost
           description,
           price,
           currency,
-          category
+          category,
+          whatsapp_number
         )
       `)
             .order('created_at', { ascending: false });
@@ -251,7 +254,8 @@ export const getPostsByUser = async (userId: string): Promise<CommunityPost[]> =
         description,
         price,
         currency,
-        category
+        category,
+        whatsapp_number
       )
     `)
         .eq('user_id', userId)
@@ -289,7 +293,8 @@ function transformPostData(data: any): CommunityPost {
                     description: item.description,
                     price: typeof item.price === 'string' ? parseFloat(item.price) : Number(item.price),
                     currency: item.currency,
-                    category: item.category
+                    category: item.category,
+                    whatsappNumber: item.whatsapp_number || undefined
                 };
             })()
         },
