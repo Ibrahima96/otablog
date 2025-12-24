@@ -83,25 +83,33 @@ export const createPost = async (
  * Get a single post by ID
  */
 export const getPostById = async (postId: string): Promise<CommunityPost> => {
-    const { data, error } = await supabase
+    // 1. Fetch Post Detail
+    const { data: postData, error: postError } = await supabase
         .from('posts')
         .select(`
-      *,
-      marketplace_item:marketplace_items (
-        title,
-        description,
-        price,
-        currency,
-        category,
-        whatsapp_number
-      )
-    `)
+            *,
+            marketplace_item:marketplace_items (
+                title,
+                description,
+                price,
+                currency,
+                category,
+                whatsapp_number
+            )
+        `)
         .eq('id', postId)
         .single();
 
-    if (error) throw error;
+    if (postError) throw postError;
 
-    return transformPostData(data);
+    // 2. Fetch Author Profile Manualy
+    const { data: profile } = await supabase
+        .from('profiles')
+        .select('username, avatar_url')
+        .eq('id', postData.user_id)
+        .single();
+
+    return transformPostData(postData, profile);
 };
 
 /**
@@ -109,19 +117,20 @@ export const getPostById = async (postId: string): Promise<CommunityPost> => {
  */
 export const getPosts = async (filters: PostFilters = {}): Promise<CommunityPost[]> => {
     try {
+        // 1. Fetch Posts
         let query = supabase
             .from('posts')
             .select(`
-        *,
-        marketplace_item:marketplace_items (
-          title,
-          description,
-          price,
-          currency,
-          category,
-          whatsapp_number
-        )
-      `)
+                *,
+                marketplace_item:marketplace_items (
+                    title,
+                    description,
+                    price,
+                    currency,
+                    category,
+                    whatsapp_number
+                )
+            `)
             .order('created_at', { ascending: false });
 
         // Apply filters
@@ -137,11 +146,26 @@ export const getPosts = async (filters: PostFilters = {}): Promise<CommunityPost
             query = query.range(filters.offset, filters.offset + (filters.limit || 10) - 1);
         }
 
-        const { data, error } = await query;
+        const { data: postsData, error: postsError } = await query;
 
-        if (error) throw error;
+        if (postsError) throw postsError;
+        if (!postsData || postsData.length === 0) return [];
 
-        return (data || []).map(transformPostData);
+        // 2. Fetch Unique Author Profiles Manually
+        const userIds = Array.from(new Set(postsData.map(post => post.user_id)));
+        const { data: profiles } = await supabase
+            .from('profiles')
+            .select('id, username, avatar_url')
+            .in('id', userIds);
+
+        // Map profiles for quick access
+        const profileMap = (profiles || []).reduce((acc: any, profile: any) => {
+            acc[profile.id] = profile;
+            return acc;
+        }, {});
+
+        // 3. Merge & Transform
+        return postsData.map(post => transformPostData(post, profileMap[post.user_id]));
     } catch (error) {
         console.error('Error fetching posts:', error);
         throw new Error('Échec du chargement des posts');
@@ -245,38 +269,47 @@ export const deletePost = async (postId: string, userId: string): Promise<void> 
  * Get posts by user
  */
 export const getPostsByUser = async (userId: string): Promise<CommunityPost[]> => {
-    const { data, error } = await supabase
+    // 1. Fetch Posts
+    const { data: postsData, error: postsError } = await supabase
         .from('posts')
         .select(`
-      *,
-      marketplace_item:marketplace_items (
-        title,
-        description,
-        price,
-        currency,
-        category,
-        whatsapp_number
-      )
-    `)
+            *,
+            marketplace_item:marketplace_items (
+                title,
+                description,
+                price,
+                currency,
+                category,
+                whatsapp_number
+            )
+        `)
         .eq('user_id', userId)
         .order('created_at', { ascending: false });
 
-    if (error) throw error;
+    if (postsError) throw postsError;
+    if (!postsData || postsData.length === 0) return [];
 
-    return (data || []).map(transformPostData);
+    // 2. Fetch Profile once
+    const { data: profile } = await supabase
+        .from('profiles')
+        .select('username, avatar_url')
+        .eq('id', userId)
+        .single();
+
+    return postsData.map(post => transformPostData(post, profile));
 };
 
 /**
  * Transform database post data to CommunityPost type
  */
-function transformPostData(data: any): CommunityPost {
+function transformPostData(data: any, profile?: any): CommunityPost {
     return {
         id: data.id,
         type: data.type,
         author: {
             id: data.user_id,
-            username: data.username || 'Utilisateur',
-            email: ''
+            username: profile?.username || 'Utilisateur',
+            avatarUrl: profile?.avatar_url || ''
         },
         content: {
             mediaUrl: data.media_url,

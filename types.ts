@@ -43,7 +43,8 @@ export interface CommunityPost {
   author: {
     id: string;
     username: string;
-    email: string;
+    email?: string;
+    avatarUrl?: string;
   };
   content: {
     mediaUrl?: string;
