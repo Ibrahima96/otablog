@@ -7,16 +7,18 @@ import MatrixRain from './MatrixRain';
 interface TerminalChatProps {
   onOpenAuth?: () => void;
   onLaunchDuel?: (questions: any) => void;
+  lastGameResult?: { score: number, topic: string } | null;
 }
 
-const TerminalChat: React.FC<TerminalChatProps> = ({ onOpenAuth, onLaunchDuel }) => {
+const TerminalChat: React.FC<TerminalChatProps> = ({ onOpenAuth, onLaunchDuel, lastGameResult }) => {
   const { user } = useAuth();
   const scrollRef = useRef<HTMLDivElement>(null);
   const [input, setInput] = React.useState('');
 
   const { messages, sendMessage, isLoading, isMatrixMode } = useChatTerminal({
     user,
-    initialMessage: "Connexion sécurisée établie. OtaBot v3.0 (Cyber-Enhanced) en ligne. \nTapez '/help' pour voir les commandes."
+    initialMessage: "Connexion sécurisée établie. OtaBot v3.0 (Cyber-Enhanced) en ligne. \nTapez '/help' pour voir les commandes.",
+    lastGameResult
   });
 
   useEffect(() => {

@@ -290,20 +290,30 @@ const Footer = () => (
   </footer>
 );
 
+import { duelService } from './services/duelService';
+import TopDuelists from './components/TopDuelists';
+import { QuizScore } from './types'; // Add import if not present, though it likely is in types.ts imports
+
 const AppContent: React.FC = () => {
   const [isAuthOpen, setIsAuthOpen] = useState(false);
   const [currentView, setCurrentView] = useState<'home' | 'quiz'>('home');
-  const { session } = useAuth();
+  const { session, user } = useAuth(); // Destructure user for username
   const [customQuizData, setCustomQuizData] = useState<any>(null);
   const [recentPosts, setRecentPosts] = useState<CommunityPost[]>([]);
+  const [topDuelists, setTopDuelists] = useState<QuizScore[]>([]);
+  const [lastGameResult, setLastGameResult] = useState<{ score: number, topic: string } | null>(null);
 
   useEffect(() => {
-    loadRecentPosts();
+    loadData();
   }, []);
 
-  const loadRecentPosts = async () => {
-    const posts = await communityService.getPosts({ limit: 3 });
+  const loadData = async () => {
+    const [posts, duelists] = await Promise.all([
+      communityService.getPosts({ limit: 3 }),
+      duelService.getTopDuelists()
+    ]);
     setRecentPosts(posts);
+    setTopDuelists(duelists);
   };
 
   const launchDuel = (questions: any) => {
@@ -311,7 +321,24 @@ const AppContent: React.FC = () => {
     setCurrentView('quiz');
   };
 
-  const handleGameComplete = (score: number) => {
+  const handleGameComplete = async (score: number) => {
+    // Check if high score
+    const username = user?.username || 'Guest_' + Math.floor(Math.random() * 1000);
+    const isNewHigh = await duelService.checkHighScore(score, username);
+
+    if (isNewHigh) {
+      // Refresh leaderboard
+      const updatedDuelists = await duelService.getTopDuelists();
+      setTopDuelists(updatedDuelists);
+    }
+
+    // If we have custom quiz data, it means it was a duel/solo mode
+    if (customQuizData && customQuizData.length > 0) {
+      setLastGameResult({
+        score,
+        topic: customQuizData[0].category || 'Duel'
+      });
+    }
     setCurrentView('home');
     setCustomQuizData(null);
   };
@@ -330,20 +357,26 @@ const AppContent: React.FC = () => {
       />
 
       <Suspense fallback={<LoadingScreen />}>
-        {currentView === 'home' ? (
-          <>
-            <EnhancedHero onOpenAuth={() => setIsAuthOpen(true)} isLoggedIn={!!session} />
-            {session && <ChampionSection champion={null} />}
-            <FloatingGallery />
-            <EnhancedFeatures onNavigate={setCurrentView} />
-            <Community onOpenAuth={() => setIsAuthOpen(true)} />
-            <TerminalChat
-              onOpenAuth={() => setIsAuthOpen(true)}
-              onLaunchDuel={launchDuel}
-            />
-            <RecentPostsPreview posts={recentPosts} onOpenAuth={() => setIsAuthOpen(true)} />
-          </>
-        ) : (
+        {/* HOME VIEW - Hidden but kept mounted to preserve Terminal state */}
+        <div style={{ display: currentView === 'home' ? 'block' : 'none' }}>
+          <EnhancedHero onOpenAuth={() => setIsAuthOpen(true)} isLoggedIn={!!session} />
+          {session && <ChampionSection champion={null} />}
+          <FloatingGallery />
+          {/* Top Duelists Section - Placed prominently */}
+          <TopDuelists duelists={topDuelists} />
+
+          <EnhancedFeatures onNavigate={setCurrentView} />
+          <Community onOpenAuth={() => setIsAuthOpen(true)} />
+          <TerminalChat
+            onOpenAuth={() => setIsAuthOpen(true)}
+            onLaunchDuel={launchDuel}
+            lastGameResult={lastGameResult}
+          />
+          <RecentPostsPreview posts={recentPosts} onOpenAuth={() => setIsAuthOpen(true)} />
+        </div>
+
+        {/* QUIZ VIEW - Conditionally rendered to reset state on new games */}
+        {currentView === 'quiz' && (
           <AnimeQuizPage
             initialQuestions={customQuizData}
             onGameComplete={handleGameComplete}

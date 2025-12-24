@@ -4,9 +4,11 @@ import { Trophy, Medal, User, Star, Crown, Share2 } from 'lucide-react';
 import { QuizScore } from '../types';
 
 interface QuizLeaderboardProps {
-    scores: QuizScore[];
+    scores?: QuizScore[];
     onPlayAgain: () => void;
-    currentScore?: number;
+    score: number;
+    totalQuestions?: number;
+    onShare?: () => void;
 }
 
 const RankBadge: React.FC<{ rank: number }> = ({ rank }) => {
@@ -16,15 +18,15 @@ const RankBadge: React.FC<{ rank: number }> = ({ rank }) => {
     return <span className="font-mono text-gray-500 font-bold">#{rank}</span>;
 };
 
-const QuizLeaderboard: React.FC<QuizLeaderboardProps> = ({ scores, onPlayAgain, currentScore }) => {
+const QuizLeaderboard: React.FC<QuizLeaderboardProps> = ({ scores = [], onPlayAgain, score, totalQuestions, onShare }) => {
     const [displayScore, setDisplayScore] = useState(0);
     const [xpProgress, setXpProgress] = useState(0);
 
     useEffect(() => {
-        if (currentScore !== undefined) {
+        if (score !== undefined) {
             // Animate score count up
             let start = 0;
-            const end = currentScore;
+            const end = score;
             const duration = 2000;
             const startTime = performance.now();
 
@@ -42,11 +44,11 @@ const QuizLeaderboard: React.FC<QuizLeaderboardProps> = ({ scores, onPlayAgain, 
             };
             requestAnimationFrame(animate);
         }
-    }, [currentScore]);
+    }, [score]);
 
     return (
         <div className="w-full max-w-4xl mx-auto">
-            {currentScore !== undefined && (
+            {score !== undefined && (
                 <motion.div
                     initial={{ opacity: 0, y: 50 }}
                     animate={{ opacity: 1, y: 0 }}
@@ -57,6 +59,17 @@ const QuizLeaderboard: React.FC<QuizLeaderboardProps> = ({ scores, onPlayAgain, 
                     <h2 className="text-6xl font-display font-black text-white mb-2 tracking-tighter">
                         CONGRATULATIONS
                     </h2>
+
+                    {onShare && (
+                        <div className="absolute top-0 right-0">
+                            <button
+                                onClick={onShare}
+                                className="flex items-center gap-2 bg-white/10 hover:bg-white/20 px-4 py-2 rounded-full text-sm font-bold transition-all text-white border border-white/5"
+                            >
+                                <Share2 size={16} /> Retour
+                            </button>
+                        </div>
+                    )}
 
                     <div className="relative inline-block py-8">
                         <motion.div

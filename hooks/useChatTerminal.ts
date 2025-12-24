@@ -1,14 +1,16 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { streamChatResponse } from '../services/llamaService';
 import { ChatMessage } from '../types';
 
 interface UseChatTerminalProps {
     initialMessage?: string;
     user: any; // Using any for simplicity as AuthContext user type might be complex to import directly here without circular deps
+    lastGameResult?: { score: number, topic: string } | null;
 }
 
 // Module-level mock database to persist challenges across re-renders
 const CHALLENGE_DB = new Map<string, any>();
+let activeChallengeCode: string | null = null; // Track current active challenge for this session
 
 // Helper to generate a random code
 const generateCode = (topic: string) => {
@@ -17,12 +19,60 @@ const generateCode = (topic: string) => {
     return `#${prefix}-${random}`;
 };
 
-export const useChatTerminal = ({ initialMessage, user }: UseChatTerminalProps) => {
+export const useChatTerminal = ({ initialMessage, user, lastGameResult }: UseChatTerminalProps) => {
     const [messages, setMessages] = useState<ChatMessage[]>([
         { id: '1', role: 'model', text: initialMessage || 'Système initialisé. OtaBot v2.5 en ligne.' }
     ]);
     const [isMatrixMode, setIsMatrixMode] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
+
+    // Handle Game Result Feedback - Only trigger when result changes and is not null
+    useEffect(() => {
+        if (lastGameResult) {
+            // Check if we were in a challenge
+            if (activeChallengeCode) {
+                // Update challenge score if we are the creator (simplified logic: if it's a new challenge we just made)
+                // Or if we joined a challenge, compare scores.
+
+                const challenge = CHALLENGE_DB.get(activeChallengeCode);
+                let feedbackText = '';
+
+                if (challenge) {
+                    if (challenge.creator === user?.username) {
+                        // We created it, so let's set the target score
+                        challenge.targetScore = lastGameResult.score;
+                        feedbackText = `🎯 MISSION ACCOMPLIE.\nScore enregistré : ${lastGameResult.score}.\n\n CODE DÉFI CONFIRMÉ : ${activeChallengeCode}\n Partagez ce code pour défier d'autres membres !`;
+                    } else {
+                        // We are a challenger
+                        const diff = lastGameResult.score - (challenge.targetScore || 0);
+                        if (diff > 0) {
+                            feedbackText = `🏆 VICTOIRE !\nVous avez battu ${challenge.creator} de ${diff} points !\nVotre Score : ${lastGameResult.score} vs ${challenge.targetScore}`;
+                        } else {
+                            feedbackText = `💀 ÉCHEC.\n${challenge.creator} conserve son titre.\nVotre Score : ${lastGameResult.score} vs ${challenge.targetScore}`;
+                        }
+                    }
+                } else {
+                    // Solo/Training or lost context
+                    feedbackText = `📣 SESSION TERMINÉE.\nScore final : ${lastGameResult.score} pts.\nEntraînement complet.`;
+                }
+
+                setMessages(prev => [...prev, {
+                    id: Date.now().toString(),
+                    role: 'model',
+                    text: feedbackText
+                }]);
+
+                activeChallengeCode = null; // Reset
+            } else {
+                // Generic result (e.g. from /solo)
+                setMessages(prev => [...prev, {
+                    id: Date.now().toString(),
+                    role: 'model',
+                    text: `📣 SESSION TERMINÉE.\nScore final : ${lastGameResult.score} pts.`
+                }]);
+            }
+        }
+    }, [lastGameResult, user]);
 
     const clearHistory = useCallback(() => {
         setMessages([{ id: Date.now().toString(), role: 'model', text: 'Terminal nettoyé. Prêt.' }]);
@@ -34,8 +84,10 @@ export const useChatTerminal = ({ initialMessage, user }: UseChatTerminalProps) 
             topic,
             questions,
             creator: user?.username || 'Unknown',
-            createdAt: new Date()
+            createdAt: new Date(),
+            targetScore: 0 // Will be updated after game
         });
+        activeChallengeCode = code; // Set active code so we know to update it upon return
         return code;
     };
 
@@ -56,10 +108,12 @@ export const useChatTerminal = ({ initialMessage, user }: UseChatTerminalProps) 
                 return true;
             }
 
+            activeChallengeCode = code; // Mark as active so we can compare scores later
+
             setMessages(prev => [...prev, {
                 id: Date.now().toString(),
                 role: 'model',
-                text: `Défi trouvé : "${challenge.topic}" par ${challenge.creator}. \nChargement du protocole de synchronisation...`,
+                text: `Défi trouvé : "${challenge.topic}" par ${challenge.creator}. \n🏆 Score à battre : ${challenge.targetScore || 'Non défini'}\nChargement du protocole...`,
                 isTyping: true
             }]);
 
@@ -291,12 +345,13 @@ export const useChatTerminal = ({ initialMessage, user }: UseChatTerminalProps) 
                     role: 'model',
                     text: `COMMANDES DISPONIBLES:
 > /duel [sujet] : Générer un nouveau quiz
+> /solo [sujet] : Entraînement solo
 > /join [code]  : Rejoindre un défi existant
 > /clear        : Effacer l'historique
 > /matrix       : Activer/Désactiver l'effet Matrix
-> /system       : Afficher les statistiques système`
-                }]);
-                return true;
+> /system       : Afficher les statistiques système
+> /help         : Afficher ce menu`
+                }]); return true;
             case '/system':
                 setMessages(prev => [...prev, {
                     id: Date.now().toString(),

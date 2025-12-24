@@ -259,6 +259,7 @@ const AnimeQuizPageContent: React.FC<{ initialQuestions?: QuizQuestionType[], on
                         >
                             <QuizLeaderboard
                                 score={score}
+                                scores={SAMPLE_SCORES}
                                 totalQuestions={questions.length}
                                 onPlayAgain={() => {
                                     setGameState('menu');
