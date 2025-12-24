@@ -611,7 +611,7 @@ export const useChatTerminal = ({ initialMessage, user, lastGameResult }: UseCha
                     return true;
                 }
 
-                const message = `🎮 Défi OtaBlog!\n\nJe te défie sur un quiz !\n\nCode: ${code}\n\nRejoins sur otablog.com et tape /join ${code}`;
+                const message = `🎮 Défi OtaBlog!\n\nJe te défie sur un quiz !\n\nCode: ${code}\n\nRejoins sur https://gravity-ota.vercel.app et tape /join ${code}`;
                 const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(message)}`;
 
                 setMessages(prev => [...prev, {
