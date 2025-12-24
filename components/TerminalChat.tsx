@@ -15,11 +15,22 @@ const TerminalChat: React.FC<TerminalChatProps> = ({ onOpenAuth, onLaunchDuel, l
   const scrollRef = useRef<HTMLDivElement>(null);
   const [input, setInput] = React.useState('');
 
-  const { messages, sendMessage, isLoading, isMatrixMode } = useChatTerminal({
+  const { messages, sendMessage, isLoading, isMatrixMode, isHypnosisActive, triggerHypnosis } = useChatTerminal({
     user,
     initialMessage: "Connexion sécurisée établie. OtaBot v3.0 (Cyber-Enhanced) en ligne. \nTapez '/help' pour voir les commandes.",
     lastGameResult
   });
+
+  useEffect(() => {
+    // Auto-trigger hypnotic guide on first terminal visit
+    const hasSeenTerminalGuide = localStorage.getItem('otablog_terminal_guide_seen');
+    if (!hasSeenTerminalGuide && user) {
+      setTimeout(() => {
+        triggerHypnosis();
+        localStorage.setItem('otablog_terminal_guide_seen', 'true');
+      }, 1000);
+    }
+  }, [user, triggerHypnosis]);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -31,6 +42,18 @@ const TerminalChat: React.FC<TerminalChatProps> = ({ onOpenAuth, onLaunchDuel, l
     if (!input.trim()) return;
     sendMessage(input);
     setInput('');
+  };
+
+  const handleInputFocus = () => {
+    // Small delay to allow keyboard to appear
+    setTimeout(() => {
+      if (scrollRef.current) {
+        scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+      }
+      // Scroll the section into view as well
+      const section = document.getElementById('chat');
+      section?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 300);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -58,12 +81,12 @@ const TerminalChat: React.FC<TerminalChatProps> = ({ onOpenAuth, onLaunchDuel, l
         </div>
 
         {/* Terminal Window */}
-        <div className="w-full bg-[#050505] border border-gray-800 rounded-xl overflow-hidden shadow-[0_0_50px_rgba(67,97,238,0.15)] ring-1 ring-white/5 relative perspective-1000 group">
+        <div className={`w-full bg-[#050505] border border-gray-800 rounded-xl overflow-hidden shadow-[0_0_50px_rgba(67,97,238,0.15)] ring-1 ring-white/5 relative perspective-1000 group transition-all duration-1000 ${isHypnosisActive ? 'hypnotic-pulse' : ''}`}>
           <div className="absolute inset-0 bg-grid-white/[0.02] bg-[length:20px_20px] pointer-events-none" />
 
           {/* CRT Overlay */}
           <div className="crt absolute inset-0 pointer-events-none z-20 opacity-50 mixing-blend-overlay" />
-          <div className="scanline" />
+          <div className={`scanline ${isHypnosisActive ? 'scanline-hypnotic' : ''}`} />
 
           {/* Terminal Header */}
           <div className="bg-[#0a0a0a] p-3 flex items-center justify-between border-b border-gray-800 relative z-30">
@@ -113,7 +136,7 @@ const TerminalChat: React.FC<TerminalChatProps> = ({ onOpenAuth, onLaunchDuel, l
           {/* Chat Area */}
           <div
             ref={scrollRef}
-            className={`h-[500px] overflow-y-auto p-6 font-mono text-sm space-y-4 scroll-smooth ${!user ? 'opacity-10 blur-sm' : ''} relative z-10`}
+            className={`h-[400px] md:h-[500px] overflow-y-auto p-4 md:p-6 font-mono text-xs md:text-sm space-y-4 scroll-smooth ${!user ? 'opacity-10 blur-sm' : ''} relative z-10`}
           >
             {messages.map((msg) => (
               <div
@@ -139,7 +162,7 @@ const TerminalChat: React.FC<TerminalChatProps> = ({ onOpenAuth, onLaunchDuel, l
                     </div>
                   ) : (
                     <>
-                      <p className="leading-relaxed whitespace-pre-wrap crt-text relative">
+                      <p className={`leading-relaxed whitespace-pre-wrap crt-text relative ${isHypnosisActive ? 'hypnotic-text' : ''}`}>
                         {msg.text}
                         {msg.isTyping && (
                           <span className="inline-block w-2 h-4 bg-neonPink ml-1 animate-pulse align-middle" />
@@ -174,27 +197,28 @@ const TerminalChat: React.FC<TerminalChatProps> = ({ onOpenAuth, onLaunchDuel, l
           </div>
 
           {/* Input Area */}
-          <div className={`p-4 bg-[#0a0a0a] border-t border-gray-800 flex gap-4 relative z-30 ${!user ? 'opacity-30 blur-sm' : ''}`}>
+          <div className={`p-4 md:p-6 bg-[#0a0a0a] border-t border-gray-800 flex items-center gap-4 relative z-30 ${!user ? 'opacity-30 blur-sm' : ''}`}>
             {isLoading && (
               <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-neonPink to-transparent animate-pulse"></div>
             )}
-            <span className="text-neonPink font-mono py-3 font-bold animate-pulse">{'>'}</span>
+            <span className="text-neonPink font-mono font-bold animate-pulse text-xl md:text-base">{'>'}</span>
             <input
               type="text"
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
+              onFocus={handleInputFocus}
               disabled={isLoading || !user}
-              placeholder={isLoading ? "Neural uplink active..." : "Enter command or query..."}
-              className="flex-1 bg-transparent border-none outline-none text-white font-mono placeholder-gray-700 caret-neonPink disabled:opacity-50"
+              placeholder={isLoading ? "Neural uplink active..." : "Entrer commande..."}
+              className="flex-1 bg-transparent border-none outline-none text-white font-mono placeholder-gray-700 caret-neonPink disabled:opacity-50 text-base py-2 md:py-0"
               autoComplete="off"
             />
             <button
               onClick={handleSend}
               disabled={isLoading || !user}
-              className={`text-gray-500 hover:text-white transition-colors disabled:opacity-30 ${isLoading ? 'animate-spin text-neonPink' : ''}`}
+              className={`w-12 h-12 md:w-auto md:h-auto flex items-center justify-center text-gray-400 hover:text-white transition-colors disabled:opacity-30 ${isLoading ? 'animate-spin text-neonPink' : ''}`}
             >
-              {isLoading ? <Cpu className="w-5 h-5" /> : <Send className="w-5 h-5" />}
+              {isLoading ? <Cpu className="w-6 h-6 md:w-5 md:h-5" /> : <Send className="w-6 h-6 md:w-5 md:h-5" />}
             </button>
           </div>
         </div>

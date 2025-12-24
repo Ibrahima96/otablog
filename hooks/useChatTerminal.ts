@@ -25,6 +25,35 @@ export const useChatTerminal = ({ initialMessage, user, lastGameResult }: UseCha
     ]);
     const [isMatrixMode, setIsMatrixMode] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
+    const [isHypnosisActive, setIsHypnosisActive] = useState(false);
+
+    const triggerHypnosis = useCallback(async () => {
+        setIsHypnosisActive(true);
+        const script = [
+            { text: "👁️ SYNCHRONISATION NEURALE EN COURS...", delay: 1000 },
+            { text: "Respirez. Laissez le code couler.", delay: 1500 },
+            { text: "Le Terminal est votre esprit. Le code est votre voix.", delay: 2000 },
+            { text: "✨ BIENVENUE DANS L'OTAGRID v3.0", delay: 1000 },
+            { text: "Ici, l'IA n'est pas un outil, c'est une extension.", delay: 1500 },
+            { text: "🔹 TAPEZ `/duel` POUR DÉFIER LA RÉALITÉ.", delay: 800 },
+            { text: "🔹 TAPEZ `/matrix` POUR VOIR AU-DELÀ.", delay: 800 },
+            { text: "🔹 TAPEZ `/help` POUR TOUT CONTRÔLER.", delay: 1500 },
+            { text: "L'immersion est totale. Vous êtes prêt. 🦾", delay: 2000 }
+        ];
+
+        setMessages([]); // Clear for focus
+
+        for (const step of script) {
+            setMessages(prev => [...prev, {
+                id: Math.random().toString(),
+                role: 'model',
+                text: step.text
+            }]);
+            await new Promise(resolve => setTimeout(resolve, step.delay));
+        }
+
+        setIsHypnosisActive(false);
+    }, []);
 
     // Handle Game Result Feedback - Only trigger when result changes and is not null
     useEffect(() => {
@@ -246,24 +275,8 @@ export const useChatTerminal = ({ initialMessage, user, lastGameResult }: UseCha
 
             // ... switch case logic (omitted for brevity in prompt, but assuming it exists)
             // GUIDE COMMAND
-            if (command === '/guide') {
-                const guideSteps = [
-                    "🚀 **INITIALISATION DU PROTOCOLE GUIDE**...",
-                    "1. **TERMINAL** : Votre hub central. Utilisez les commandes `/` pour interagir avec le système.",
-                    "2. **DUELS IA** : Tapez `/duel [sujet]` pour que l'IA génère un quiz personnalisé. Marquez des points pour grimper au classement.",
-                    "3. **COMMUNAUTÉ** : Partagez vos découvertes dans la section OtaBlog et gagnez de la réputation.",
-                    "4. **DÉFIS QUOTIDIENS** : Revenez chaque jour pour des énigmes et des bonus exclusifs.",
-                    "🏁 **PRÊT ?** Tapez `/help` pour voir toutes les commandes ou lancez votre premier `/solo` !"
-                ];
-
-                for (const step of guideSteps) {
-                    setMessages(prev => [...prev, {
-                        id: Date.now().toString() + Math.random(),
-                        role: 'model',
-                        text: step
-                    }]);
-                    await new Promise(resolve => setTimeout(resolve, 800));
-                }
+            if (command === '/guide' || command === '/tuto') {
+                triggerHypnosis();
                 return true;
             }
 
@@ -353,6 +366,8 @@ export const useChatTerminal = ({ initialMessage, user, lastGameResult }: UseCha
         sendMessage,
         isLoading,
         isMatrixMode,
+        isHypnosisActive,
+        triggerHypnosis,
         clearHistory
     };
 };

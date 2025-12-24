@@ -88,10 +88,10 @@ const QuizQuestion: React.FC<QuizQuestionProps> = ({ question, onAnswer, totalTi
             <motion.div
                 initial={{ opacity: 0, scale: 0.9, rotateX: 20 }}
                 animate={{ opacity: 1, scale: 1, rotateX: 0 }}
-                className="bg-midnight/60 backdrop-blur-xl border border-white/10 rounded-3xl p-10 mb-10 relative overflow-hidden shadow-2xl"
+                className="bg-midnight/60 backdrop-blur-xl border border-white/10 rounded-3xl p-6 md:p-10 mb-10 relative overflow-hidden shadow-2xl"
             >
                 <div className="absolute top-0 left-0 w-2 h-full bg-gradient-to-b from-neonPink to-neonPurple" />
-                <h2 className="text-3xl md:text-5xl font-display font-black text-white leading-tight drop-shadow-lg">
+                <h2 className="text-2xl md:text-5xl font-display font-black text-white leading-tight drop-shadow-lg text-center md:text-left">
                     {question.question}
                 </h2>
             </motion.div>

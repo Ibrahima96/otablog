@@ -166,7 +166,7 @@ const Community: React.FC<CommunityProps> = ({ onOpenAuth }) => {
                     // Community Posts Grid for Authenticated Users
                     <>
                         {/* Tab Navigation */}
-                        <div className="flex justify-center gap-4 mb-12 flex-wrap">
+                        <div className="flex justify-start md:justify-center gap-4 mb-12 overflow-x-auto pb-4 hide-scrollbar snap-x no-scrollbar">
                             {[
                                 { label: 'Tout', value: 'all' as const },
                                 { label: 'Galerie', value: 'image' as const },
@@ -176,7 +176,7 @@ const Community: React.FC<CommunityProps> = ({ onOpenAuth }) => {
                                 <button
                                     key={tab.value}
                                     onClick={() => handleFilterChange(tab.value)}
-                                    className={`px-6 py-2 rounded-full border transition-all font-mono text-sm ${activeFilter === tab.value
+                                    className={`px-6 py-2 rounded-full border transition-all font-mono text-sm flex-shrink-0 snap-start ${activeFilter === tab.value
                                         ? 'border-neonPink bg-neonPink/20 text-neonPink'
                                         : 'border-white/10 text-gray-400 hover:text-white hover:border-neonPink/50'
                                         }`}

@@ -42,7 +42,7 @@ const Hero = ({ onOpenAuth }: { onOpenAuth: () => void }) => {
   const { user } = useAuth();
 
   return (
-    <header className="relative min-h-screen flex items-center justify-center pt-20 overflow-hidden">
+    <header className="relative min-h-[100dvh] flex items-center justify-center pt-20 overflow-hidden">
       <div className="absolute inset-0 bg-cyber-grid bg-[length:50px_50px] opacity-[0.15] animate-[pulse_4s_infinite]"></div>
       <div className="absolute inset-0 bg-gradient-to-t from-obsidian via-transparent to-transparent"></div>
 
@@ -302,6 +302,7 @@ const AppContent: React.FC = () => {
   const [isAuthOpen, setIsAuthOpen] = useState(false);
   const [isGuideOpen, setIsGuideOpen] = useState(false);
   const [currentView, setCurrentView] = useState<'home' | 'quiz'>('home');
+  const [isMobile, setIsMobile] = useState(false);
   const { session, user } = useAuth(); // Destructure user for username
   const [customQuizData, setCustomQuizData] = useState<any>(null);
   const [recentPosts, setRecentPosts] = useState<CommunityPost[]>([]);
@@ -310,6 +311,12 @@ const AppContent: React.FC = () => {
 
   useEffect(() => {
     loadData();
+
+    // Check if mobile
+    const checkMobile = () => setIsMobile(window.innerWidth < 768);
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+
     // Check if it's the first visit
     const hasSeenGuide = localStorage.getItem('otablog_guide_seen');
     if (!hasSeenGuide) {
@@ -356,11 +363,11 @@ const AppContent: React.FC = () => {
 
   return (
     <ErrorBoundary>
-      <main className="bg-obsidian min-h-screen text-white selection:bg-neonPink selection:text-white relative">
+      <main className="bg-obsidian min-h-[100dvh] text-white selection:bg-neonPink selection:text-white relative">
         {/* Global visual effects layer */}
         <StellarBackground />
         <FloatingOrbs />
-        <MagneticCursor />
+        {!isMobile && <MagneticCursor />}
 
         <Navbar
           onOpenAuth={() => setIsAuthOpen(true)}
@@ -384,7 +391,7 @@ const AppContent: React.FC = () => {
               onLaunchDuel={launchDuel}
               lastGameResult={lastGameResult}
             />
-            <RecentPostsPreview posts={recentPosts} onOpenAuth={() => setIsAuthOpen(true)} />
+            {!session && <RecentPostsPreview posts={recentPosts} onOpenAuth={() => setIsAuthOpen(true)} />}
           </div>
 
           {/* QUIZ VIEW - Conditionally rendered to reset state on new games */}

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Menu, X, Zap, User, LogOut } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
 
 interface NavbarProps {
@@ -110,50 +111,80 @@ const Navbar: React.FC<NavbarProps> = ({ onOpenAuth, currentView = 'home', onNav
         </button>
       </div>
 
-      {/* Mobile Menu */}
-      {isOpen && (
-        <div className="md:hidden absolute top-full left-0 w-full bg-obsidian/95 backdrop-blur-xl border-b border-white/10 p-6 flex flex-col gap-6">
-          {navLinks.map((link) => (
-            <a
-              key={link.name}
-              href={link.href}
-              className="text-xl text-gray-300 hover:text-cyanLight font-display"
-              onClick={() => {
-                if (link.view === 'home') onNavigate?.('home');
-                setIsOpen(false);
-              }}
-            >
-              {link.name}
-            </a>
-          ))}
-
-          {user && (
-            <button
-              onClick={() => {
-                onNavigate?.('quiz');
-                setIsOpen(false);
-              }}
-              className="text-xl text-neonPink font-display text-left"
-            >
-              QUIZ BATTLE
-            </button>
-          )}
-
-          {user ? (
-            <div className="border-t border-white/10 pt-6 flex justify-between items-center">
-              <span className="text-cyanLight font-mono">{user.email}</span>
-              <button onClick={() => { signOut(); setIsOpen(false); }} className="text-red-400">Déconnexion</button>
+      {/* Mobile Menu Overlay */}
+      <AnimatePresence>
+        {isOpen && (
+          <motion.div
+            initial={{ opacity: 0, x: '100%' }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: '100%' }}
+            transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+            className="md:hidden fixed inset-0 z-50 bg-obsidian/98 backdrop-blur-2xl p-8 flex flex-col"
+          >
+            <div className="flex justify-between items-center mb-12">
+              <div className="flex items-center gap-2">
+                <Zap className="text-neonPink w-6 h-6" />
+                <span className="font-display font-bold text-xl text-white">OTABLOG</span>
+              </div>
+              <button onClick={() => setIsOpen(false)} className="text-white p-2 border border-white/10 rounded-full">
+                <X />
+              </button>
             </div>
-          ) : (
-            <button
-              onClick={() => { onOpenAuth(); setIsOpen(false); }}
-              className="w-full bg-gradient-to-r from-neonPurple to-neonPink py-3 rounded-lg font-bold text-white tracking-widest uppercase"
-            >
-              Connexion
-            </button>
-          )}
-        </div>
-      )}
+
+            <div className="flex flex-col gap-8">
+              {navLinks.map((link) => (
+                <a
+                  key={link.name}
+                  href={link.href}
+                  className="text-3xl text-gray-300 hover:text-cyanLight font-display border-b border-white/5 pb-4"
+                  onClick={() => {
+                    if (link.view === 'home') onNavigate?.('home');
+                    setIsOpen(false);
+                  }}
+                >
+                  {link.name}
+                </a>
+              ))}
+
+              {user && (
+                <button
+                  onClick={() => {
+                    onNavigate?.('quiz');
+                    setIsOpen(false);
+                  }}
+                  className="text-3xl text-neonPink font-display text-left border-b border-white/5 pb-4"
+                >
+                  QUIZ BATTLE
+                </button>
+              )}
+            </div>
+
+            <div className="mt-auto pt-10 border-t border-white/10">
+              {user ? (
+                <div className="flex flex-col gap-6">
+                  <div className="flex items-center gap-3 text-cyanLight font-mono">
+                    <User size={20} />
+                    <span className="text-lg">{user.email}</span>
+                  </div>
+                  <button
+                    onClick={() => { signOut(); setIsOpen(false); }}
+                    className="w-full text-center py-4 rounded-xl border border-red-500/30 text-red-500 font-bold"
+                  >
+                    Déconnexion
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={() => { onOpenAuth(); setIsOpen(false); }}
+                  className="w-full bg-gradient-to-r from-neonPurple to-neonPink py-5 rounded-xl font-display font-bold text-white tracking-widest uppercase shadow-[0_0_30px_rgba(247,37,133,0.3)]"
+                >
+                  Connexion
+                </button>
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </nav>
   );
 };
