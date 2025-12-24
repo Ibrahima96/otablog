@@ -124,7 +124,7 @@ const Navbar: React.FC<NavbarProps> = ({ onOpenAuth, currentView = 'home', onNav
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: '100%' }}
             transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-            className="md:hidden fixed inset-0 z-50 bg-obsidian/98 backdrop-blur-2xl p-8 flex flex-col"
+            className="md:hidden fixed inset-0 z-50 bg-obsidian/98  backdrop-blur-2xl p-8 flex flex-col"
           >
             <div className="flex justify-between items-center mb-12">
               <div className="flex items-center gap-2">
