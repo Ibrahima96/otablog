@@ -1,16 +1,16 @@
 import { useState, useCallback, useEffect } from 'react';
-import { streamChatResponse } from '../services/llamaService';
+import { streamChatResponse, generateQuizQuestions } from '../services/llamaService';
 import { ChatMessage } from '../types';
 
 interface UseChatTerminalProps {
     initialMessage?: string;
-    user: any; // Using any for simplicity as AuthContext user type might be complex to import directly here without circular deps
+    user: any;
     lastGameResult?: { score: number, topic: string } | null;
 }
 
 // Module-level mock database to persist challenges across re-renders
 const CHALLENGE_DB = new Map<string, any>();
-let activeChallengeCode: string | null = null; // Track current active challenge for this session
+let globalActiveChallengeCode: string | null = null;
 
 // Helper to generate a random code
 const generateCode = (topic: string) => {
@@ -41,7 +41,7 @@ export const useChatTerminal = ({ initialMessage, user, lastGameResult }: UseCha
             { text: "L'immersion est totale. Vous êtes prêt. 🦾", delay: 2000 }
         ];
 
-        setMessages([]); // Clear for focus
+        setMessages([]);
 
         for (const step of script) {
             setMessages(prev => [...prev, {
@@ -55,51 +55,35 @@ export const useChatTerminal = ({ initialMessage, user, lastGameResult }: UseCha
         setIsHypnosisActive(false);
     }, []);
 
-    // Handle Game Result Feedback - Only trigger when result changes and is not null
+    // Handle Game Result Feedback
     useEffect(() => {
         if (lastGameResult) {
-            // Check if we were in a challenge
-            if (activeChallengeCode) {
-                // Update challenge score if we are the creator (simplified logic: if it's a new challenge we just made)
-                // Or if we joined a challenge, compare scores.
+            const challenge = globalActiveChallengeCode ? CHALLENGE_DB.get(globalActiveChallengeCode) : null;
+            let feedbackText = '';
 
-                const challenge = CHALLENGE_DB.get(activeChallengeCode);
-                let feedbackText = '';
-
-                if (challenge) {
-                    if (challenge.creator === user?.username) {
-                        // We created it, so let's set the target score
-                        challenge.targetScore = lastGameResult.score;
-                        feedbackText = `🎯 MISSION ACCOMPLIE.\nScore enregistré : ${lastGameResult.score}.\n\n CODE DÉFI CONFIRMÉ : ${activeChallengeCode}\n Partagez ce code pour défier d'autres membres !`;
-                    } else {
-                        // We are a challenger
-                        const diff = lastGameResult.score - (challenge.targetScore || 0);
-                        if (diff > 0) {
-                            feedbackText = `🏆 VICTOIRE !\nVous avez battu ${challenge.creator} de ${diff} points !\nVotre Score : ${lastGameResult.score} vs ${challenge.targetScore}`;
-                        } else {
-                            feedbackText = `💀 ÉCHEC.\n${challenge.creator} conserve son titre.\nVotre Score : ${lastGameResult.score} vs ${challenge.targetScore}`;
-                        }
-                    }
+            if (challenge) {
+                if (challenge.creator === user?.username) {
+                    challenge.targetScore = lastGameResult.score;
+                    feedbackText = `🎯 MISSION ACCOMPLIE.\nScore enregistré : ${lastGameResult.score}.\n\n CODE DÉFI CONFIRMÉ : ${globalActiveChallengeCode}\n Partagez ce code pour défier d'autres membres !`;
                 } else {
-                    // Solo/Training or lost context
-                    feedbackText = `📣 SESSION TERMINÉE.\nScore final : ${lastGameResult.score} pts.\nEntraînement complet.`;
+                    const diff = lastGameResult.score - (challenge.targetScore || 0);
+                    if (diff > 0) {
+                        feedbackText = `🏆 VICTOIRE !\nVous avez battu ${challenge.creator} de ${diff} points !\nVotre Score : ${lastGameResult.score} vs ${challenge.targetScore}`;
+                    } else {
+                        feedbackText = `💀 ÉCHEC.\n${challenge.creator} conserve son titre.\nVotre Score : ${lastGameResult.score} vs ${challenge.targetScore}`;
+                    }
                 }
-
-                setMessages(prev => [...prev, {
-                    id: Date.now().toString(),
-                    role: 'model',
-                    text: feedbackText
-                }]);
-
-                activeChallengeCode = null; // Reset
             } else {
-                // Generic result (e.g. from /solo)
-                setMessages(prev => [...prev, {
-                    id: Date.now().toString(),
-                    role: 'model',
-                    text: `📣 SESSION TERMINÉE.\nScore final : ${lastGameResult.score} pts.`
-                }]);
+                feedbackText = `📣 SESSION TERMINÉE.\nScore final : ${lastGameResult.score} pts.\nEntraînement complet.`;
             }
+
+            setMessages(prev => [...prev, {
+                id: Date.now().toString(),
+                role: 'model',
+                text: feedbackText
+            }]);
+
+            globalActiveChallengeCode = null;
         }
     }, [lastGameResult, user]);
 
@@ -114,50 +98,38 @@ export const useChatTerminal = ({ initialMessage, user, lastGameResult }: UseCha
             questions,
             creator: user?.username || 'Unknown',
             createdAt: new Date(),
-            targetScore: 0 // Will be updated after game
+            targetScore: 0
         });
-        activeChallengeCode = code; // Set active code so we know to update it upon return
+        globalActiveChallengeCode = code;
         return code;
     };
 
-    const processCommand = useCallback(async (cmd: string) => {
+    const processCommand = useCallback(async (cmd: string): Promise<boolean> => {
         try {
             const command = cmd.toLowerCase().trim();
 
-            // JOIN COMMAND
             if (command.startsWith('/join')) {
-                // ... (logic handled inside try/catch naturally)
                 const code = command.replace('/join', '').trim();
-                // Check code format safety
                 if (!code || code.length < 3) {
-                    setMessages(prev => [...prev, {
-                        id: Date.now().toString(),
-                        role: 'model',
-                        text: `Erreur: Format de code invalide.`
-                    }]);
+                    setMessages(prev => [...prev, { id: Date.now().toString(), role: 'model', text: `Erreur: Format de code invalide.` }]);
                     return true;
                 }
                 const challenge = CHALLENGE_DB.get(code);
 
                 if (!challenge) {
-                    setMessages(prev => [...prev, {
-                        id: Date.now().toString(),
-                        role: 'model',
-                        text: `Erreur 404: Le code de défi ${code} est introuvable ou a expiré.`
-                    }]);
+                    setMessages(prev => [...prev, { id: Date.now().toString(), role: 'model', text: `Erreur 404: Le code de défi ${code} est introuvable.` }]);
                     return true;
                 }
 
-                activeChallengeCode = code;
-
+                globalActiveChallengeCode = code;
                 setMessages(prev => [...prev, {
                     id: Date.now().toString(),
                     role: 'model',
-                    text: `Défi trouvé : "${challenge.topic}" par ${challenge.creator}. \n🏆 Score à battre : ${challenge.targetScore || 'Non défini'}\nChargement du protocole...`,
+                    text: `Défi trouvé : "${challenge.topic}" par ${challenge.creator}. \n🏆 Score à battre : ${challenge.targetScore || 'Non défini'}\nChargement...`,
                     isTyping: true
                 }]);
 
-                await new Promise(resolve => setTimeout(resolve, 1500));
+                await new Promise(resolve => setTimeout(resolve, 800));
 
                 setMessages(prev => {
                     const filtered = prev.filter(m => !m.isTyping);
@@ -171,15 +143,10 @@ export const useChatTerminal = ({ initialMessage, user, lastGameResult }: UseCha
                 return true;
             }
 
-            // SOLO / TRAINING COMMAND
             if (command.startsWith('/solo') || command.startsWith('/train')) {
                 const topic = command.replace('/solo', '').replace('/train', '').trim();
                 if (!topic) {
-                    setMessages(prev => [...prev, {
-                        id: Date.now().toString(),
-                        role: 'model',
-                        text: 'Veuillez spécifier un sujet d\'entraînement. Exemple: /solo One Piece'
-                    }]);
+                    setMessages(prev => [...prev, { id: Date.now().toString(), role: 'model', text: 'Veuillez spécifier un sujet. Exemple: /solo One Piece' }]);
                     return true;
                 }
 
@@ -190,13 +157,9 @@ export const useChatTerminal = ({ initialMessage, user, lastGameResult }: UseCha
                     isTyping: true
                 }]);
 
-                await new Promise(resolve => setTimeout(resolve, 1500));
-
-                // ... logic
-                const questions = [
-                    { id: `s1-${Date.now()}`, category: topic, question: `Entraînement sur ${topic} : Question facile ?`, options: ["Réponse A", "Réponse B", "Réponse C", "Réponse D"], correctAnswer: 0, points: 50 },
-                    { id: `s2-${Date.now()}`, category: topic, question: `Entraînement sur ${topic} : Question moyenne ?`, options: ["Réponse A", "Réponse B", "Réponse C", "Réponse D"], correctAnswer: 1, points: 100 },
-                    { id: `s3-${Date.now()}`, category: topic, question: `Entraînement sur ${topic} : Question difficile ?`, options: ["Réponse A", "Réponse B", "Réponse C", "Réponse D"], correctAnswer: 2, points: 200 }
+                const questions = await generateQuizQuestions(topic, 5);
+                const finalQuestions = questions.length >= 3 ? questions : [
+                    { id: 's1', category: topic, question: `Entraînement sur ${topic} : Question 1?`, options: ["R1", "R2", "R3", "R4"], correctAnswer: 0, points: 100 }
                 ];
 
                 setMessages(prev => {
@@ -205,25 +168,19 @@ export const useChatTerminal = ({ initialMessage, user, lastGameResult }: UseCha
                         id: Date.now().toString(),
                         role: 'model',
                         text: `Module d'entraînement prêt.`,
-                        data: { type: 'duel_invite', payload: questions }
+                        data: { type: 'duel_invite', payload: finalQuestions }
                     }];
                 });
                 return true;
             }
 
-            // DUEL COMMAND
             if (command.startsWith('/duel')) {
                 const topic = command.replace('/duel', '').trim();
                 if (!topic) {
-                    setMessages(prev => [...prev, {
-                        id: Date.now().toString(),
-                        role: 'model',
-                        text: 'Veuillez spécifier un sujet. Exemple: /duel Dragon Ball'
-                    }]);
+                    setMessages(prev => [...prev, { id: Date.now().toString(), role: 'model', text: 'Veuillez spécifier un sujet. Exemple: /duel Dragon Ball' }]);
                     return true;
                 }
 
-                // ... existing duel logic
                 setMessages(prev => [...prev, {
                     id: Date.now().toString(),
                     role: 'model',
@@ -231,35 +188,12 @@ export const useChatTerminal = ({ initialMessage, user, lastGameResult }: UseCha
                     isTyping: true
                 }]);
 
-                await new Promise(resolve => setTimeout(resolve, 2000));
+                const aiQuestions = await generateQuizQuestions(topic, 5);
+                const finalQuestions = aiQuestions.length >= 3 ? aiQuestions : [
+                    { id: 'd1', category: topic, question: `Duel sur ${topic} ?`, options: ["A", "B", "C", "D"], correctAnswer: 0, points: 100 }
+                ];
 
-                let questions;
-                if (topic.toLowerCase().includes('hist') || topic.toLowerCase().includes('cult') || topic.toLowerCase().includes('citation')) {
-                    // ... (keep usage of mock)
-                    questions = [
-                        { id: 'h1', category: 'Histoire Otaku', question: "Quel terme a été utilisé pour la première fois par Nakamori Akio en 1983 ?", options: ["Weeb", "Otaku", "Akiba-kei", "Hikikomori"], correctAnswer: 1, points: 150 },
-                        // ... shortened for brevity in this replace, assume full array is kept or I should use full replacement if I want to be safe, but file is large. 
-                        // Actually, better to just wrap the whole function block.
-                    ];
-                    // (Re-inserting full mock data to ensure no data loss in this replace block)
-                    questions = [
-                        { id: 'h1', category: 'Histoire Otaku', question: "Quel terme a été utilisé pour la première fois par Nakamori Akio en 1983 pour définir cette sous-culture ?", options: ["Weeb", "Otaku", "Akiba-kei", "Hikikomori"], correctAnswer: 1, points: 150 },
-                        { id: 'h2', category: 'Citations', question: "Dans quel film de 1988 entend-on l'échange légendaire : 'KANEDA !!!' - 'TETSUO !!!' ?", options: ["Ghost in the Shell", "Neon Genesis Evangelion", "Akira", "Cowboy Bebop"], correctAnswer: 2, points: 100 },
-                        { id: 'h3', category: 'Culture', question: "Quel quartier de Tokyo est historiquement considéré comme le 'Quartier Electrique' et berceau de cette culture ?", options: ["Shibuya", "Shinjuku", "Harajuku", "Akihabara"], correctAnswer: 3, points: 100 },
-                        { id: 'h4', category: 'Légende', question: "Surnommé le 'Dieu du Manga', il a créé Astro Boy et révolutionné l'industrie :", options: ["Hayao Miyazaki", "Akira Toriyama", "Osamu Tezuka", "Eiichiro Oda"], correctAnswer: 2, points: 200 },
-                        { id: 'h5', category: 'Meme/Citation', question: "\"Les gens meurent si on les tue.\" Cette tautologie célèbre vient de quel anime ?", options: ["Bleach", "Fate/Stay Night", "Naruto", "Death Note"], correctAnswer: 1, points: 150 }
-                    ];
-                } else {
-                    questions = [
-                        { id: `d1-${Date.now()}`, category: topic, question: `Question générée sur ${topic} (1/5) : Quel est l'élément principal ?`, options: ["Feu", "Eau", "Vent", "Terre"], correctAnswer: 0, points: 100 },
-                        { id: `d2-${Date.now()}`, category: topic, question: `Question générée sur ${topic} (2/5) : Qui est le protagoniste ?`, options: ["Héros A", "Héros B", "Méchant C", "Support D"], correctAnswer: 0, points: 100 },
-                        { id: `d3-${Date.now()}`, category: topic, question: `Question générée sur ${topic} (3/5) : En quelle année est-ce sorti ?`, options: ["1990", "2000", "2010", "2020"], correctAnswer: 1, points: 100 },
-                        { id: `d4-${Date.now()}`, category: topic, question: `Question générée sur ${topic} (4/5) : Quelle est la technique secrète ?`, options: ["Punch", "Kick", "Beam", "Slash"], correctAnswer: 2, points: 150 },
-                        { id: `d5-${Date.now()}`, category: topic, question: `Question générée sur ${topic} (5/5) : Qui est le boss final ?`, options: ["Boss X", "Boss Y", "Boss Z", "Boss Omega"], correctAnswer: 3, points: 200 }
-                    ];
-                }
-
-                const code = createChallenge(topic, questions);
+                const code = createChallenge(topic, finalQuestions);
 
                 setMessages(prev => {
                     const filtered = prev.filter(m => !m.isTyping);
@@ -267,14 +201,12 @@ export const useChatTerminal = ({ initialMessage, user, lastGameResult }: UseCha
                         id: Date.now().toString(),
                         role: 'model',
                         text: `Duel généré avec succès pour le sujet : ${topic}.\nCODE DÉFI: ${code}`,
-                        data: { type: 'duel_invite', payload: questions, code }
+                        data: { type: 'duel_invite', payload: finalQuestions, code }
                     }];
                 });
                 return true;
             }
 
-            // ... switch case logic (omitted for brevity in prompt, but assuming it exists)
-            // GUIDE COMMAND
             if (command === '/guide' || command === '/tuto') {
                 triggerHypnosis();
                 return true;
@@ -283,91 +215,58 @@ export const useChatTerminal = ({ initialMessage, user, lastGameResult }: UseCha
             switch (command) {
                 case '/clear': clearHistory(); return true;
                 case '/matrix': setIsMatrixMode(prev => !prev);
-                    setMessages(prev => [...prev, { id: Date.now().toString(), role: 'model', text: isMatrixMode ? 'Matrice désactivée.' : 'Matrice activée.' }]); return true;
-                case '/help': setMessages(prev => [...prev, { id: Date.now().toString(), role: 'model', text: `COMMANDES DISPONIBLES:\n> /duel [sujet]\n> /solo [sujet]\n> /join [code]\n> /guide\n> /clear\n> /matrix\n> /system\n> /help` }]); return true;
+                    setMessages(prev => [...prev, { id: Date.now().toString(), role: 'model', text: !isMatrixMode ? 'Matrice activée.' : 'Matrice désactivée.' }]); return true;
+                case '/help': setMessages(prev => [...prev, { id: Date.now().toString(), role: 'model', text: `COMMANDES:\n> /duel [sujet]\n> /solo [sujet]\n> /join [code]\n> /guide\n> /clear\n> /matrix\n> /help` }]); return true;
                 case '/system': setMessages(prev => [...prev, { id: Date.now().toString(), role: 'model', text: `STATS SYSTÈME: [ONLINE]` }]); return true;
+                default: return false;
             }
-
-            return false;
-
         } catch (err) {
             console.error("Command Error:", err);
-            setMessages(prev => [...prev, {
-                id: Date.now().toString(),
-                role: 'model',
-                text: `⚠ ERREUR CRITIQUE DU SYSTÈME: Impossible de traiter la commande.\nCode erreur: 0x${Math.floor(Math.random() * 10000).toString(16).toUpperCase()}`
-            }]);
+            setMessages(prev => [...prev, { id: Date.now().toString(), role: 'model', text: `⚠ ERREUR CRITIQUE.` }]);
             return true;
         }
-    }, [clearHistory, isMatrixMode, user]);
+    }, [clearHistory, isMatrixMode, user, triggerHypnosis]);
 
     const sendMessage = async (input: string) => {
         if (!input.trim() || isLoading || !user) return;
 
-        // Check for commands
         if (input.startsWith('/')) {
-            const isCommand = processCommand(input);
+            const isCommand = await processCommand(input);
             if (isCommand) return;
         }
 
-        const userMsg: ChatMessage = {
-            id: Date.now().toString(),
-            role: 'user',
-            text: input
-        };
-
+        const userMsg: ChatMessage = { id: Date.now().toString(), role: 'user', text: input };
         setMessages(prev => [...prev, userMsg]);
         setIsLoading(true);
 
         const botMsgId = (Date.now() + 1).toString();
-        const botMsg: ChatMessage = {
-            id: botMsgId,
-            role: 'model',
-            text: '',
-            isTyping: true
-        };
-
+        const botMsg: ChatMessage = { id: botMsgId, role: 'model', text: '', isTyping: true };
         setMessages(prev => [...prev, botMsg]);
 
         try {
             const history = messages.map(m => ({ role: m.role, text: m.text }));
             const stream = streamChatResponse(history, input);
-
             let fullResponse = "";
 
             for await (const chunk of stream) {
                 fullResponse += chunk;
                 setMessages(prev => prev.map(msg =>
-                    msg.id === botMsgId
-                        ? { ...msg, text: fullResponse, isTyping: true }
-                        : msg
+                    msg.id === botMsgId ? { ...msg, text: fullResponse, isTyping: true } : msg
                 ));
             }
 
             setMessages(prev => prev.map(msg =>
-                msg.id === botMsgId
-                    ? { ...msg, isTyping: false }
-                    : msg
+                msg.id === botMsgId ? { ...msg, isTyping: false } : msg
             ));
         } catch (error) {
             console.error("Chat Error:", error);
             setMessages(prev => prev.map(msg =>
-                msg.id === botMsgId
-                    ? { ...msg, text: "Erreur de connexion au serveur neural. Réessayez.", isTyping: false }
-                    : msg
+                msg.id === botMsgId ? { ...msg, text: "Erreur de connexion.", isTyping: false } : msg
             ));
         } finally {
             setIsLoading(false);
         }
     };
 
-    return {
-        messages,
-        sendMessage,
-        isLoading,
-        isMatrixMode,
-        isHypnosisActive,
-        triggerHypnosis,
-        clearHistory
-    };
+    return { messages, sendMessage, isLoading, isMatrixMode, isHypnosisActive, triggerHypnosis, clearHistory };
 };

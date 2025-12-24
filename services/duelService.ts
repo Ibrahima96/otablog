@@ -2,7 +2,7 @@ import { QuizScore } from '../types';
 
 // Mock initial data
 const INITIAL_TOP_DUELISTS: QuizScore[] = [
-    { userId: 'god_1', username: 'Saitama_99', score: 99999, rank: 1, avatarUrl: '' },
+    { userId: 'god_1', username: 'Shogun_Dono99', score: 99999, rank: 1, avatarUrl: '' },
     { userId: 'solo_2', username: 'Kirito_Solo', score: 85000, rank: 2, avatarUrl: '' },
     { userId: 'pro_3', username: 'Faker_KR', score: 72400, rank: 3, avatarUrl: '' },
     { userId: 'noob_4', username: 'NoobMaster69', score: 68000, rank: 4, avatarUrl: '' },

@@ -113,6 +113,7 @@ const ChampionSection: React.FC<{ champion: { name: string; image: string; descr
                     src={champion.image}
                     alt={champion.name}
                     className="w-full h-full object-cover"
+                    loading="lazy"
                   />
                 </div>
                 <div className="flex-1 text-center md:text-left">
@@ -167,9 +168,9 @@ const RecentPostsPreview: React.FC<{ posts: CommunityPost[]; onOpenAuth: () => v
                 {post.content.mediaUrl && (
                   <div className="aspect-video overflow-hidden bg-black/50">
                     {post.type === 'video' ? (
-                      <video src={post.content.mediaUrl} className="w-full h-full object-cover" />
+                      <video src={post.content.mediaUrl} className="w-full h-full object-cover" preload="none" muted />
                     ) : (
-                      <img src={post.content.mediaUrl} alt="" className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
+                      <img src={post.content.mediaUrl} alt="" className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" loading="lazy" />
                     )}
                   </div>
                 )}

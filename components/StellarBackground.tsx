@@ -21,6 +21,8 @@ const StellarBackground: React.FC = () => {
     const connectionsRef = useRef<Connection[]>([]);
     const mouseRef = useRef({ x: 0, y: 0 });
     const animationRef = useRef<number>(0);
+    const frameCountRef = useRef<number>(0);
+    const isMobile = useRef(window.innerWidth < 768);
 
     const colors = [
         'rgba(247, 37, 133, 0.8)',   // neonPink
@@ -40,11 +42,13 @@ const StellarBackground: React.FC = () => {
         const resizeCanvas = () => {
             canvas.width = window.innerWidth;
             canvas.height = window.innerHeight;
+            isMobile.current = window.innerWidth < 768;
             initStars();
         };
 
         const initStars = () => {
-            const numStars = Math.floor((canvas.width * canvas.height) / 8000);
+            const density = isMobile.current ? 16000 : 8000;
+            const numStars = Math.floor((canvas.width * canvas.height) / density);
             starsRef.current = Array.from({ length: numStars }, () => ({
                 x: Math.random() * canvas.width,
                 y: Math.random() * canvas.height,
@@ -76,6 +80,7 @@ const StellarBackground: React.FC = () => {
         };
 
         const drawGlow = (x: number, y: number, radius: number, color: string) => {
+            if (isMobile.current) return; // Skip glow on mobile for better performance
             const gradient = ctx.createRadialGradient(x, y, 0, x, y, radius * 4);
             gradient.addColorStop(0, color);
             gradient.addColorStop(1, 'transparent');
@@ -132,11 +137,16 @@ const StellarBackground: React.FC = () => {
                 ctx.fill();
             });
 
-            // Draw connections (constellation effect)
-            updateConnections();
+            // Draw connections (constellation effect) - Throttled for performance
+            if (frameCountRef.current % (isMobile.current ? 10 : 2) === 0) {
+                updateConnections();
+            }
+
             connectionsRef.current.forEach(({ from, to }) => {
                 const starA = stars[from];
                 const starB = stars[to];
+                if (!starA || !starB) return;
+
                 const dx = starA.x - starB.x;
                 const dy = starA.y - starB.y;
                 const distance = Math.sqrt(dx * dx + dy * dy);
@@ -150,19 +160,22 @@ const StellarBackground: React.FC = () => {
                 ctx.stroke();
             });
 
-            // Draw mouse attraction field
-            const mouseGradient = ctx.createRadialGradient(
-                mouse.x, mouse.y, 0,
-                mouse.x, mouse.y, 200
-            );
-            mouseGradient.addColorStop(0, 'rgba(247, 37, 133, 0.05)');
-            mouseGradient.addColorStop(0.5, 'rgba(114, 9, 183, 0.02)');
-            mouseGradient.addColorStop(1, 'transparent');
-            ctx.fillStyle = mouseGradient;
-            ctx.beginPath();
-            ctx.arc(mouse.x, mouse.y, 200, 0, Math.PI * 2);
-            ctx.fill();
+            // Draw mouse attraction field - Skip on mobile
+            if (!isMobile.current) {
+                const mouseGradient = ctx.createRadialGradient(
+                    mouse.x, mouse.y, 0,
+                    mouse.x, mouse.y, 200
+                );
+                mouseGradient.addColorStop(0, 'rgba(247, 37, 133, 0.05)');
+                mouseGradient.addColorStop(0.5, 'rgba(114, 9, 183, 0.02)');
+                mouseGradient.addColorStop(1, 'transparent');
+                ctx.fillStyle = mouseGradient;
+                ctx.beginPath();
+                ctx.arc(mouse.x, mouse.y, 200, 0, Math.PI * 2);
+                ctx.fill();
+            }
 
+            frameCountRef.current++;
             animationRef.current = requestAnimationFrame(animate);
         };
 

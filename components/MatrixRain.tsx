@@ -15,7 +15,8 @@ const MatrixRain: React.FC<{ active: boolean }> = ({ active }) => {
 
         const chars = '01AZERTYUIOPQSDFGHJKLMWXCVBN';
         const fontSize = 14;
-        const columns = canvas.width / fontSize;
+        const isMobile = window.innerWidth < 768;
+        const columns = Math.floor(canvas.width / fontSize / (isMobile ? 2 : 1));
         const drops: number[] = [];
 
         for (let i = 0; i < columns; i++) {

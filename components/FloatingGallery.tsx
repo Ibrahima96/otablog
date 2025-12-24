@@ -32,6 +32,7 @@ const Column = ({ images, duration }: { images: string[], duration: number }) =>
             src={src}
             alt="Gallery Item"
             className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700 filter grayscale-[50%] group-hover:grayscale-0"
+            loading="lazy"
           />
           <div className="absolute bottom-4 left-4 z-20 translate-y-4 group-hover:translate-y-0 opacity-0 group-hover:opacity-100 transition-all duration-300">
             <span className="text-cyanLight font-mono text-xs block mb-1">SYS.IMG.0{i}</span>
