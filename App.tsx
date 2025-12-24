@@ -5,7 +5,7 @@ import PostModal from './components/PostModal';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { CartProvider } from './context/CartContext';
 import * as communityService from './services/communityService';
-import { CommunityPost } from './types';
+import { CommunityPost, QuizScore } from './types';
 import './components/TerminalEffects.css';
 import { ArrowRight, MessageSquare, Share2, Sparkles, Trophy, Heart, MessageCircle, ExternalLink, Loader2 } from 'lucide-react';
 
@@ -15,6 +15,12 @@ import FloatingOrbs from './components/FloatingOrbs';
 import MagneticCursor from './components/MagneticCursor';
 import EnhancedHero from './components/EnhancedHero';
 import EnhancedFeatures from './components/EnhancedFeatures';
+
+// New features
+import { duelService } from './services/duelService';
+import TopDuelists from './components/TopDuelists';
+import { FeedbackOverseer } from './components/FeedbackOverseer';
+import ErrorBoundary from './components/ErrorBoundary';
 
 // Lazy load heavy components
 const TerminalChat = React.lazy(() => import('./components/TerminalChat'));
@@ -290,9 +296,6 @@ const Footer = () => (
   </footer>
 );
 
-import { duelService } from './services/duelService';
-import TopDuelists from './components/TopDuelists';
-import { QuizScore } from './types'; // Add import if not present, though it likely is in types.ts imports
 
 const AppContent: React.FC = () => {
   const [isAuthOpen, setIsAuthOpen] = useState(false);
@@ -344,55 +347,56 @@ const AppContent: React.FC = () => {
   };
 
   return (
-    <main className="bg-obsidian min-h-screen text-white selection:bg-neonPink selection:text-white relative">
-      {/* Global visual effects layer */}
-      <StellarBackground />
-      <FloatingOrbs />
-      <MagneticCursor />
+    <ErrorBoundary>
+      <main className="bg-obsidian min-h-screen text-white selection:bg-neonPink selection:text-white relative">
+        {/* Global visual effects layer */}
+        <StellarBackground />
+        <FloatingOrbs />
+        <MagneticCursor />
 
-      <Navbar
-        onOpenAuth={() => setIsAuthOpen(true)}
-        currentView={currentView}
-        onNavigate={setCurrentView}
-      />
+        <Navbar
+          onOpenAuth={() => setIsAuthOpen(true)}
+          currentView={currentView}
+          onNavigate={setCurrentView}
+        />
 
-      <Suspense fallback={<LoadingScreen />}>
-        {/* HOME VIEW - Hidden but kept mounted to preserve Terminal state */}
-        <div style={{ display: currentView === 'home' ? 'block' : 'none' }}>
-          <EnhancedHero onOpenAuth={() => setIsAuthOpen(true)} isLoggedIn={!!session} />
-          {session && <ChampionSection champion={null} />}
-          <FloatingGallery />
-          {/* Top Duelists Section - Placed prominently */}
-          <TopDuelists duelists={topDuelists} />
+        <Suspense fallback={<LoadingScreen />}>
+          {/* HOME VIEW - Hidden but kept mounted to preserve Terminal state */}
+          <div style={{ display: currentView === 'home' ? 'block' : 'none' }}>
+            <EnhancedHero onOpenAuth={() => setIsAuthOpen(true)} isLoggedIn={!!session} />
+            {session && <ChampionSection champion={null} />}
+            <FloatingGallery />
+            {/* Top Duelists Section - Placed prominently */}
+            <TopDuelists duelists={topDuelists} />
 
-          <EnhancedFeatures onNavigate={setCurrentView} />
-          <Community onOpenAuth={() => setIsAuthOpen(true)} />
-          <TerminalChat
-            onOpenAuth={() => setIsAuthOpen(true)}
-            onLaunchDuel={launchDuel}
-            lastGameResult={lastGameResult}
-          />
-          <RecentPostsPreview posts={recentPosts} onOpenAuth={() => setIsAuthOpen(true)} />
-        </div>
+            <EnhancedFeatures onNavigate={setCurrentView} />
+            <Community onOpenAuth={() => setIsAuthOpen(true)} />
+            <TerminalChat
+              onOpenAuth={() => setIsAuthOpen(true)}
+              onLaunchDuel={launchDuel}
+              lastGameResult={lastGameResult}
+            />
+            <RecentPostsPreview posts={recentPosts} onOpenAuth={() => setIsAuthOpen(true)} />
+          </div>
 
-        {/* QUIZ VIEW - Conditionally rendered to reset state on new games */}
-        {currentView === 'quiz' && (
-          <AnimeQuizPage
-            initialQuestions={customQuizData}
-            onGameComplete={handleGameComplete}
-          />
-        )}
-      </Suspense>
+          {/* QUIZ VIEW - Conditionally rendered to reset state on new games */}
+          {currentView === 'quiz' && (
+            <AnimeQuizPage
+              initialQuestions={customQuizData}
+              onGameComplete={handleGameComplete}
+            />
+          )}
+        </Suspense>
 
-      <Footer />
-      <Suspense fallback={null}>
-        <AuthModal isOpen={isAuthOpen} onClose={() => setIsAuthOpen(false)} />
-      </Suspense>
-    </main>
+        <Footer />
+        <Suspense fallback={null}>
+          <AuthModal isOpen={isAuthOpen} onClose={() => setIsAuthOpen(false)} />
+        </Suspense>
+      </main>
+    </ErrorBoundary>
   );
 };
 
-import { FeedbackOverseer } from './components/FeedbackOverseer';
 
 const App: React.FC = () => {
   return (

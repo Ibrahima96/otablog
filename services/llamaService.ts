@@ -47,3 +47,57 @@ export const streamChatResponse = async function* (
         yield " [Erreur Système : Lien Neural Interrompu]";
     }
 };
+
+/**
+ * Génère des questions de quiz structurées en JSON
+ */
+export const generateQuizQuestions = async (topic: string, count: number = 5): Promise<any[]> => {
+    try {
+        const prompt = `Génère ${count} questions de quiz sur le thème (anime/manga) : "${topic}".
+        Réponds UNIQUEMENT avec un objet JSON au format:
+        {
+          "questions": [
+            {
+              "id": "unique_id",
+              "category": "${topic}",
+              "question": "Question ici ?",
+              "options": ["Choix 1", "Choix 2", "Choix 3", "Choix 4"],
+              "correctAnswer": 0, // index de la bonne réponse (0-3)
+              "points": 100
+            }
+          ]
+        }`;
+
+        const response = await llama.chat.completions.create({
+            model: 'llama-3.3-70b-versatile',
+            messages: [
+                {
+                    role: 'system',
+                    content: "Tu es un générateur de quiz expert en anime/manga. Tu génères uniquement du JSON valide."
+                },
+                {
+                    role: 'user',
+                    content: prompt
+                }
+            ],
+            response_format: { type: 'json_object' } // Force JSON mode if supported, or rely on prompt
+        });
+
+        const content = response.choices[0]?.message?.content;
+        if (!content) return [];
+
+        // Parse JSON safely
+        try {
+            const json = JSON.parse(content);
+            // Handle both object wrapper or direct array
+            return Array.isArray(json) ? json : (json.questions || json.quiz || []);
+        } catch (e) {
+            console.error("Failed to parse AI Quiz JSON", e);
+            return [];
+        }
+
+    } catch (error) {
+        console.error("AI Quiz Generation Failed:", error);
+        return [];
+    }
+};

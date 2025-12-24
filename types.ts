@@ -77,7 +77,7 @@ export interface QuizQuestion {
   question: string;
   options: string[];
   correctAnswer: number; // Index 0-3
-  category: 'shonen' | 'shojo' | 'seinen' | 'isekai' | 'general';
+  category: 'shonen' | 'shojo' | 'seinen' | 'isekai' | 'general' | 'classique' | 'sport' | 'mecha' | 'culture' | 'citation' | string;
   points: number;
 }
 
