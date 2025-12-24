@@ -271,7 +271,7 @@ const EnhancedHero: React.FC<EnhancedHeroProps> = ({ onOpenAuth, isLoggedIn }) =
                     transition={{ delay: 2, duration: 1 }}
                 >
                     <motion.div
-                        className="w-6 h-10 rounded-full border-2 border-white/20 flex justify-center pt-2"
+                        className="w-6 h-10 rounded-full border-2 border-white/20 flex justify-center pt-2 hidden"
                         animate={{ borderColor: ['rgba(255,255,255,0.2)', 'rgba(247,37,133,0.4)', 'rgba(255,255,255,0.2)'] }}
                         transition={{ duration: 2, repeat: Infinity }}
                     >
