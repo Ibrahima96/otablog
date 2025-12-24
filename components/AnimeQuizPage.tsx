@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Trophy, Zap, Brain, Target, Award, Play } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
@@ -76,7 +76,7 @@ const AnimeQuizPageContent: React.FC<{ initialQuestions?: QuizQuestionType[], on
     const isDuel = !!initialQuestions && initialQuestions.length > 0;
     const questionTimer = isDuel ? 5 : 15;
 
-    const handleClose = () => {
+    const handleClose = useCallback(() => {
         if (onGameComplete) {
             onGameComplete(score);
         } else {
@@ -85,9 +85,9 @@ const AnimeQuizPageContent: React.FC<{ initialQuestions?: QuizQuestionType[], on
             setScore(0);
             setStreak(0);
         }
-    }
+    }, [onGameComplete, score]);
 
-    const handleStartGame = async () => {
+    const handleStartGame = useCallback(async () => {
         try {
             setGameState('loading');
             const topics = ["Shonen", "Seinen", "Studios Animation", "Ghibli", "Nouveautés 2024"];
@@ -115,9 +115,9 @@ const AnimeQuizPageContent: React.FC<{ initialQuestions?: QuizQuestionType[], on
             setQuestions(getRandomQuestions(5));
             setGameState('playing');
         }
-    };
+    }, []);
 
-    const handleAnswer = (index: number, timeRemaining: number) => {
+    const handleAnswer = useCallback((index: number, timeRemaining: number) => {
         const currentQ = questions[currentQuestionIndex];
         const isCorrect = index === currentQ.correctAnswer;
 
@@ -139,7 +139,7 @@ const AnimeQuizPageContent: React.FC<{ initialQuestions?: QuizQuestionType[], on
                 setGameState('gameover');
             }
         }, 1200);
-    };
+    }, [questions, currentQuestionIndex, streak, triggerFeedback]);
 
     return (
         <div className="min-h-screen pt-24 pb-12 px-4 relative overflow-hidden flex flex-col items-center">
@@ -260,6 +260,7 @@ const AnimeQuizPageContent: React.FC<{ initialQuestions?: QuizQuestionType[], on
                             </div>
 
                             <QuizQuestion
+                                key={questions[currentQuestionIndex].id}
                                 question={questions[currentQuestionIndex]}
                                 onAnswer={handleAnswer}
                                 totalTime={questionTimer}
