@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { Menu, X, Zap, User, LogOut } from 'lucide-react';
+import { Menu, X, Zap, User, LogOut, ShoppingBag } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
 
 interface NavbarProps {
   onOpenAuth: () => void;
-  currentView?: 'home' | 'quiz';
-  onNavigate?: (view: 'home' | 'quiz') => void;
+  currentView?: 'home' | 'quiz' | 'shop';
+  onNavigate?: (view: 'home' | 'quiz' | 'shop') => void;
 }
 
 const Navbar: React.FC<NavbarProps> = ({ onOpenAuth, currentView = 'home', onNavigate }) => {
@@ -23,9 +23,10 @@ const Navbar: React.FC<NavbarProps> = ({ onOpenAuth, currentView = 'home', onNav
   }, []);
 
   const navLinks = [
-    { name: 'Découvrir', href: '#discover', view: 'home' },
-    { name: 'Communauté', href: '#community', view: 'home' },
-    { name: 'Terminal', href: '#chat', view: 'home' },
+    { name: 'Découvrir', href: '#discover', view: 'home' as const },
+    { name: 'Communauté', href: '#community', view: 'home' as const },
+    { name: 'Shop', href: '#shop', view: 'shop' as const },
+    { name: 'Terminal', href: '#chat', view: 'home' as const },
   ];
 
   return (
@@ -52,7 +53,10 @@ const Navbar: React.FC<NavbarProps> = ({ onOpenAuth, currentView = 'home', onNav
               key={link.name}
               href={link.view === 'home' ? link.href : '#'}
               onClick={(e) => {
-                if (link.view === 'home' && currentView !== 'home') {
+                if (link.view === 'shop') {
+                  e.preventDefault();
+                  onNavigate?.('shop');
+                } else if (link.view === 'home' && currentView !== 'home') {
                   e.preventDefault();
                   onNavigate?.('home');
                   // Small timeout to allow view switch before scrolling
@@ -62,7 +66,8 @@ const Navbar: React.FC<NavbarProps> = ({ onOpenAuth, currentView = 'home', onNav
                   }, 100);
                 }
               }}
-              className="text-gray-300 hover:text-cyanLight font-medium text-sm tracking-wide transition-colors relative after:content-[''] after:absolute after:-bottom-1 after:left-0 after:w-0 after:h-[1px] after:bg-cyanLight hover:after:w-full after:transition-all"
+              className={`font-medium text-sm tracking-wide transition-colors relative after:content-[''] after:absolute after:-bottom-1 after:left-0 after:w-0 after:h-[1px] after:bg-cyanLight hover:after:w-full after:transition-all ${link.view === currentView ? 'text-neonPink' : 'text-gray-300 hover:text-cyanLight'
+                }`}
             >
               {link.name}
             </a>
@@ -136,9 +141,11 @@ const Navbar: React.FC<NavbarProps> = ({ onOpenAuth, currentView = 'home', onNav
                 <a
                   key={link.name}
                   href={link.href}
-                  className="text-3xl text-gray-300 hover:text-cyanLight font-display border-b border-white/5 pb-4"
-                  onClick={() => {
-                    if (link.view === 'home') onNavigate?.('home');
+                  className={`text-3xl font-display border-b border-white/5 pb-4 ${link.view === currentView ? 'text-neonPink' : 'text-gray-300 hover:text-cyanLight'
+                    }`}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    onNavigate?.(link.view);
                     setIsOpen(false);
                   }}
                 >

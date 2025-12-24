@@ -61,11 +61,13 @@ export const createPost = async (
 
         // Create marketplace item if applicable
         if (postData.type === 'marketplace' && postData.marketplaceItem) {
+            const { whatsappNumber, ...otherFields } = postData.marketplaceItem;
             const { error: marketError } = await supabase
                 .from('marketplace_items')
                 .insert({
                     post_id: post.id,
-                    ...postData.marketplaceItem
+                    ...otherFields,
+                    whatsapp_number: whatsappNumber || null
                 });
 
             if (marketError) throw marketError;

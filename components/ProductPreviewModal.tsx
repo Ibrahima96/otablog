@@ -123,7 +123,9 @@ const ProductPreviewModal: React.FC<ProductPreviewModalProps> = ({
                                     {/* WhatsApp Contact Button */}
                                     {item.whatsappNumber && (
                                         <a
-                                            href={`https://wa.me/${item.whatsappNumber.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(`Bonjour! Je suis intéressé(e) par votre article "${item.title}" à ${item.price} ${item.currency}. Est-il toujours disponible?`)}`}
+                                            href={`https://wa.me/${item.whatsappNumber.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(
+                                                `Bonjour ${authorName}! 👋\n\nJe suis intéressé(e) par votre article:\n📦 ${item.title}\n💰 ${item.price} ${item.currency}\n\nEst-il toujours disponible?\n\nMerci!`
+                                            )}`}
                                             target="_blank"
                                             rel="noopener noreferrer"
                                             className="w-full py-4 bg-gradient-to-r from-green-500 to-green-600 text-white font-display font-bold text-lg tracking-wide rounded-sm hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-3 shadow-[0_0_20px_rgba(34,197,94,0.3)] hover:shadow-[0_0_30px_rgba(34,197,94,0.5)]"

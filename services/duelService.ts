@@ -1,54 +1,130 @@
 import { QuizScore } from '../types';
-
-// Mock initial data
-const INITIAL_TOP_DUELISTS: QuizScore[] = [
-    { userId: 'god_1', username: 'Shogun_Dono99', score: 99999, rank: 1, avatarUrl: '' },
-    { userId: 'solo_2', username: 'Kirito_Solo', score: 85000, rank: 2, avatarUrl: '' },
-    { userId: 'pro_3', username: 'Faker_KR', score: 72400, rank: 3, avatarUrl: '' },
-    { userId: 'noob_4', username: 'NoobMaster69', score: 68000, rank: 4, avatarUrl: '' },
-];
+import { supabase } from './supabaseClient';
 
 class DuelService {
-    private topScores: QuizScore[] = [...INITIAL_TOP_DUELISTS];
+    /**
+     * Get top duelists from Supabase
+     */
+    async getTopDuelists(limit: number = 4): Promise<QuizScore[]> {
+        try {
+            const { data, error } = await supabase
+                .from('quiz_scores')
+                .select('*')
+                .order('score', { ascending: false })
+                .limit(limit);
 
-    async getTopDuelists(): Promise<QuizScore[]> {
-        // Simulate API latency
-        await new Promise(resolve => setTimeout(resolve, 500));
-        return [...this.topScores];
+            if (error) throw error;
+
+            return (data || []).map((score, index) => ({
+                userId: score.user_id,
+                username: score.username,
+                score: score.score,
+                rank: index + 1,
+                avatarUrl: score.avatar_url || ''
+            }));
+        } catch (error) {
+            console.error('Error fetching top duelists:', error);
+            return [];
+        }
     }
 
-    async checkHighScore(score: number, username: string): Promise<boolean> {
-        // Check if score qualifies for top 4
-        const lowestTopScore = this.topScores.length < 4 ? 0 : this.topScores[3].score;
+    /**
+     * Save or update a quiz score
+     * Returns true if it's a new high score for the leaderboard
+     */
+    async checkHighScore(score: number, username: string, userId?: string): Promise<boolean> {
+        try {
+            // Get current user ID (if authenticated)
+            const effectiveUserId = userId || (await supabase.auth.getUser()).data.user?.id;
 
-        if (score > lowestTopScore) {
-            // Add new score
-            const newEntry: QuizScore = {
-                userId: `user_${Date.now()}`,
-                username,
-                score,
-                rank: 0, // Will be recalculated
-                avatarUrl: ''
-            };
+            if (!effectiveUserId) {
+                console.warn('No user ID available, score not saved');
+                return false;
+            }
 
-            this.topScores.push(newEntry);
+            // Check if user already has a score
+            const { data: existingScore } = await supabase
+                .from('quiz_scores')
+                .select('score')
+                .eq('user_id', effectiveUserId)
+                .single();
 
-            // Sort desc
-            this.topScores.sort((a, b) => b.score - a.score);
+            if (existingScore) {
+                // Update only if new score is higher
+                if (score > existingScore.score) {
+                    const { error } = await supabase
+                        .from('quiz_scores')
+                        .update({
+                            score,
+                            username,
+                            updated_at: new Date().toISOString()
+                        })
+                        .eq('user_id', effectiveUserId);
 
-            // Keep top 4
-            this.topScores = this.topScores.slice(0, 4);
+                    if (error) throw error;
+                    return await this.isInTopLeaderboard(score);
+                }
+                return false;
+            } else {
+                // Insert new score
+                const { error } = await supabase
+                    .from('quiz_scores')
+                    .insert({
+                        user_id: effectiveUserId,
+                        username,
+                        score,
+                        category: 'general'
+                    });
 
-            // Recalculate ranks
-            this.topScores = this.topScores.map((entry, index) => ({
-                ...entry,
-                rank: index + 1
-            }));
-
-            return true; // High score updated
+                if (error) throw error;
+                return await this.isInTopLeaderboard(score);
+            }
+        } catch (error) {
+            console.error('Error saving quiz score:', error);
+            return false;
         }
+    }
 
-        return false;
+    /**
+     * Check if a score qualifies for top 4
+     */
+    private async isInTopLeaderboard(score: number): Promise<boolean> {
+        try {
+            const { data, error } = await supabase
+                .from('quiz_scores')
+                .select('score')
+                .order('score', { ascending: false })
+                .limit(4);
+
+            if (error) throw error;
+
+            if (!data || data.length < 4) return true;
+
+            const lowestTopScore = data[3].score;
+            return score >= lowestTopScore;
+        } catch (error) {
+            console.error('Error checking leaderboard:', error);
+            return false;
+        }
+    }
+
+    /**
+     * Get user's personal best score
+     */
+    async getUserBestScore(userId: string): Promise<number | null> {
+        try {
+            const { data, error } = await supabase
+                .from('quiz_scores')
+                .select('score')
+                .eq('user_id', userId)
+                .single();
+
+            if (error) return null;
+            return data?.score || null;
+        } catch (error) {
+            console.error('Error fetching user score:', error);
+            return null;
+        }
     }
 }
 

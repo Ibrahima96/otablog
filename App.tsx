@@ -28,6 +28,7 @@ const AuthModal = React.lazy(() => import('./components/AuthModal'));
 const Community = React.lazy(() => import('./components/Community'));
 const AnimeQuizPage = React.lazy(() => import('./components/AnimeQuizPage'));
 const NeuralGuide = React.lazy(() => import('./components/NeuralGuide'));
+const ShopPage = React.lazy(() => import('./components/ShopPage'));
 
 const LoadingScreen = () => (
   <div className="flex items-center justify-center min-h-[50vh]">
@@ -302,7 +303,7 @@ const Footer = () => (
 const AppContent: React.FC = () => {
   const [isAuthOpen, setIsAuthOpen] = useState(false);
   const [isGuideOpen, setIsGuideOpen] = useState(false);
-  const [currentView, setCurrentView] = useState<'home' | 'quiz'>('home');
+  const [currentView, setCurrentView] = useState<'home' | 'quiz' | 'shop'>('home');
   const [isMobile, setIsMobile] = useState(false);
   const { session, user } = useAuth(); // Destructure user for username
   const [customQuizData, setCustomQuizData] = useState<any>(null);
@@ -394,6 +395,11 @@ const AppContent: React.FC = () => {
             />
             {!session && <RecentPostsPreview posts={recentPosts} onOpenAuth={() => setIsAuthOpen(true)} />}
           </div>
+
+          {/* SHOP VIEW */}
+          {currentView === 'shop' && (
+            <ShopPage onOpenAuth={() => setIsAuthOpen(true)} />
+          )}
 
           {/* QUIZ VIEW - Conditionally rendered to reset state on new games */}
           {currentView === 'quiz' && (
