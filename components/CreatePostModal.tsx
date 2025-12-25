@@ -33,7 +33,7 @@ const CreatePostModal: React.FC<CreatePostModalProps> = ({ isOpen, onClose, onPo
 
         // Validate file type
         const validImageTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
-        const validVideoTypes = ['video/mp4', 'video/webm', 'video/ogg'];
+        const validVideoTypes = ['video/mp4', 'video/webm', 'video/ogg', 'video/quicktime'];
 
         if ((postType === 'image' || postType === 'marketplace') && !validImageTypes.includes(file.type)) {
             setError('Format d\'image non supporté. Utilisez JPG, PNG, GIF ou WebP.');
@@ -41,7 +41,7 @@ const CreatePostModal: React.FC<CreatePostModalProps> = ({ isOpen, onClose, onPo
         }
 
         if (postType === 'video' && !validVideoTypes.includes(file.type)) {
-            setError('Format de vidéo non supporté. Utilisez MP4, WebM ou OGG.');
+            setError('Format de vidéo non supporté. Utilisez MP4, WebM, OGG ou MOV.');
             return;
         }
 
