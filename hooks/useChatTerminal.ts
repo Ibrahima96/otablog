@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect } from 'react';
 import { streamChatResponse, generateQuizQuestions } from '../services/llamaService';
 import { ChatMessage } from '../types';
 import { supabase } from '../services/supabaseClient';
+import { duelService } from '../services/duelService';
 
 interface UseChatTerminalProps {
     initialMessage?: string;
@@ -9,11 +10,13 @@ interface UseChatTerminalProps {
     lastGameResult?: { score: number, topic: string } | null;
 }
 
+// ... (keep helper functions: generateCode, createChallengeInDB, getChallengeFromDB, updateChallengeScore as they are)
+
 // Helper to generate a unique challenge code
 const generateCode = (topic: string) => {
-    const prefix = topic.substring(0, 3).toUpperCase();
-    const random = Math.floor(Math.random() * 10000);
-    const timestamp = Date.now().toString().slice(-4);
+    const prefix = topic.substring(0, 3).toUpperCase().replace(/[^A-Z]/g, 'X');
+    const random = Math.floor(Math.random() * 100000);
+    const timestamp = Date.now().toString().slice(-6);
     return `#${prefix}-${random}-${timestamp}`;
 };
 
@@ -50,7 +53,7 @@ const getChallengeFromDB = async (code: string) => {
             .select('*')
             .eq('code', code)
             .eq('is_active', true)
-            .single();
+            .maybeSingle();
 
         if (error) throw error;
         return data;
@@ -136,7 +139,7 @@ export const useChatTerminal = ({ initialMessage, user, lastGameResult }: UseCha
 
         for (const step of script) {
             setMessages(prev => [...prev, {
-                id: Math.random().toString(),
+                id: Math.random().toString(36).substr(2, 9),
                 role: 'model',
                 text: step.text
             }]);
@@ -150,6 +153,13 @@ export const useChatTerminal = ({ initialMessage, user, lastGameResult }: UseCha
     useEffect(() => {
         const handleGameResult = async () => {
             if (!lastGameResult) return;
+
+            // SAVE SCORE GLOBALLY
+            let newHighScore = false;
+            if (user) {
+                const username = user.user_metadata?.username || user.email?.split('@')[0] || 'Joueur';
+                newHighScore = await duelService.checkHighScore(lastGameResult.score, username, user.id);
+            }
 
             let feedbackText = '';
 
@@ -175,8 +185,13 @@ export const useChatTerminal = ({ initialMessage, user, lastGameResult }: UseCha
                 feedbackText = `📣 SESSION TERMINÉE.\nScore final : ${lastGameResult.score} pts.\n\n✨ Entraînement complet.`;
             }
 
+            // Append Leaderboard Update
+            if (newHighScore) {
+                feedbackText += `\n\n🌟 NOUVEAU RECORD PERSONNEL ! Vous grimpez dans le Leaderboard !`;
+            }
+
             setMessages(prev => [...prev, {
-                id: Date.now().toString(),
+                id: Date.now().toString() + Math.random().toString().slice(2),
                 role: 'model',
                 text: feedbackText
             }]);
@@ -207,7 +222,7 @@ export const useChatTerminal = ({ initialMessage, user, lastGameResult }: UseCha
                 }
 
                 setMessages(prev => [...prev, {
-                    id: Date.now().toString(),
+                    id: 'join-' + Date.now(),
                     role: 'model',
                     text: `🔍 Recherche du défi ${code}...`,
                     isTyping: true
@@ -219,7 +234,7 @@ export const useChatTerminal = ({ initialMessage, user, lastGameResult }: UseCha
                     setMessages(prev => {
                         const filtered = prev.filter(m => !m.isTyping);
                         return [...filtered, {
-                            id: Date.now().toString(),
+                            id: 'err-' + Date.now(),
                             role: 'model',
                             text: `❌ Erreur 404: Le code de défi ${code} est introuvable.\n\nVérifiez le code et réessayez.`
                         }];
@@ -234,7 +249,7 @@ export const useChatTerminal = ({ initialMessage, user, lastGameResult }: UseCha
                 setMessages(prev => {
                     const filtered = prev.filter(m => !m.isTyping);
                     return [...filtered, {
-                        id: Date.now().toString(),
+                        id: 'found-' + Date.now(),
                         role: 'model',
                         text: `✅ Défi trouvé !\n\n📚 Sujet: "${challenge.topic}"\n👤 Créateur: ${challenge.creator_username}\n🏆 Score à battre: ${challenge.target_score || 'Non défini'}\n\n⚔️ Prêt à relever le défi ?`,
                         data: { type: 'duel_invite', payload: challenge.questions, isChallenge: true, code }
@@ -246,12 +261,12 @@ export const useChatTerminal = ({ initialMessage, user, lastGameResult }: UseCha
             if (command.startsWith('/solo') || command.startsWith('/train')) {
                 const topic = command.replace('/solo', '').replace('/train', '').trim();
                 if (!topic) {
-                    setMessages(prev => [...prev, { id: Date.now().toString(), role: 'model', text: 'Veuillez spécifier un sujet. Exemple: /solo One Piece' }]);
+                    setMessages(prev => [...prev, { id: 'err-' + Date.now(), role: 'model', text: 'Veuillez spécifier un sujet. Exemple: /solo One Piece' }]);
                     return true;
                 }
 
                 setMessages(prev => [...prev, {
-                    id: Date.now().toString(),
+                    id: 'train-' + Date.now(),
                     role: 'model',
                     text: `Configuration du module d'entraînement "${topic}"...`,
                     isTyping: true
@@ -265,7 +280,7 @@ export const useChatTerminal = ({ initialMessage, user, lastGameResult }: UseCha
                 setMessages(prev => {
                     const filtered = prev.filter(m => !m.isTyping);
                     return [...filtered, {
-                        id: Date.now().toString(),
+                        id: 'rdy-' + Date.now(),
                         role: 'model',
                         text: `Module d'entraînement prêt.`,
                         data: { type: 'duel_invite', payload: finalQuestions }
@@ -615,7 +630,7 @@ export const useChatTerminal = ({ initialMessage, user, lastGameResult }: UseCha
                 const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(message)}`;
 
                 setMessages(prev => [...prev, {
-                    id: Date.now().toString(),
+                    id: 'share-' + Date.now(),
                     role: 'model',
                     text: `📤 PARTAGE WHATSAPP\n\nCode: ${code}\n\n✅ Lien généré !\n\nCliquez ici pour partager:\n${whatsappUrl}\n\n💡 Le lien s'ouvrira dans WhatsApp`
                 }]);
@@ -630,14 +645,14 @@ export const useChatTerminal = ({ initialMessage, user, lastGameResult }: UseCha
             switch (command) {
                 case '/clear': clearHistory(); return true;
                 case '/matrix': setIsMatrixMode(prev => !prev);
-                    setMessages(prev => [...prev, { id: Date.now().toString(), role: 'model', text: !isMatrixMode ? '🟢 Mode Matrix activé.' : '🔴 Mode Matrix désactivé.' }]); return true;
-                case '/help': setMessages(prev => [...prev, { id: Date.now().toString(), role: 'model', text: `📖 COMMANDES DISPONIBLES\n\n🎮 DUELS & QUIZ\n> /duel [sujet] - Créer un défi\n> /solo [sujet] - S'entraîner\n> /join [code] - Rejoindre un défi\n\n🏆 SOCIAL\n> /leaderboard - Top 10 joueurs\n> /stats - Vos statistiques\n> /share [code] - Partager WhatsApp\n\n🎲 FUN\n> /fortune - Citation otaku\n> /8ball [question] - Boule magique\n> /flip - Pile ou face\n> /roll [XdY] - Lancer de dés\n\n💬 CHAT IA\n> Tapez sans / pour discuter\n\n⚙️ SYSTÈME\n> /help - Cette aide\n> /guide - Tutoriel animé\n> /clear - Nettoyer\n> /matrix - Mode Matrix\n> /system - Stats système\n\n💡 Tapez /guide pour le tutoriel complet !` }]); return true;
-                case '/system': setMessages(prev => [...prev, { id: Date.now().toString(), role: 'model', text: `⚡ STATS SYSTÈME\n\n🟢 Status: ONLINE\n🤖 IA: Gemini Flash 2.0\n💾 Base: Supabase\n🎮 Défis: Persistants\n📊 Version: OtaBot v3.0\n\nTout fonctionne parfaitement ! ✨` }]); return true;
+                    setMessages(prev => [...prev, { id: 'sys-' + Date.now(), role: 'model', text: !isMatrixMode ? '🟢 Mode Matrix activé.' : '🔴 Mode Matrix désactivé.' }]); return true;
+                case '/help': setMessages(prev => [...prev, { id: 'hel-' + Date.now(), role: 'model', text: `📖 COMMANDES DISPONIBLES\n\n🎮 DUELS & QUIZ\n> /duel [sujet] - Créer un défi\n> /solo [sujet] - S'entraîner\n> /join [code] - Rejoindre un défi\n\n🏆 SOCIAL\n> /leaderboard - Top 10 joueurs\n> /stats - Vos statistiques\n> /share [code] - Partager WhatsApp\n\n🎲 FUN\n> /fortune - Citation otaku\n> /8ball [question] - Boule magique\n> /flip - Pile ou face\n> /roll [XdY] - Lancer de dés\n\n💬 CHAT IA\n> Tapez sans / pour discuter\n\n⚙️ SYSTÈME\n> /help - Cette aide\n> /guide - Tutoriel animé\n> /clear - Nettoyer\n> /matrix - Mode Matrix\n> /system - Stats système\n\n💡 Tapez /guide pour le tutoriel complet !` }]); return true;
+                case '/system': setMessages(prev => [...prev, { id: 'sys-' + Date.now(), role: 'model', text: `⚡ STATS SYSTÈME\n\n🟢 Status: ONLINE\n🤖 IA: Gemini Flash 2.0\n💾 Base: Supabase\n🎮 Défis: Persistants\n📊 Version: OtaBot v3.0\n\nTout fonctionne parfaitement ! ✨` }]); return true;
                 default: return false;
             }
         } catch (err) {
             console.error("Command Error:", err);
-            setMessages(prev => [...prev, { id: Date.now().toString(), role: 'model', text: `⚠ ERREUR CRITIQUE.` }]);
+            setMessages(prev => [...prev, { id: 'sys-' + Date.now(), role: 'model', text: `⚠ ERREUR CRITIQUE.` }]);
             return true;
         }
     }, [clearHistory, isMatrixMode, user, triggerHypnosis]);
@@ -650,11 +665,11 @@ export const useChatTerminal = ({ initialMessage, user, lastGameResult }: UseCha
             if (isCommand) return;
         }
 
-        const userMsg: ChatMessage = { id: Date.now().toString(), role: 'user', text: input };
+        const userMsg: ChatMessage = { id: 'usr-' + Date.now(), role: 'user', text: input };
         setMessages(prev => [...prev, userMsg]);
         setIsLoading(true);
 
-        const botMsgId = (Date.now() + 1).toString();
+        const botMsgId = 'bot-' + (Date.now() + 1);
         const botMsg: ChatMessage = { id: botMsgId, role: 'model', text: '', isTyping: true };
         setMessages(prev => [...prev, botMsg]);
 
