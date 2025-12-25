@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import TiltCard from './TiltCard';
 import { Heart, MessageCircle, ShoppingBag, Image as ImageIcon, Video, Tag, Trash2, Eye } from 'lucide-react';
 import { CommunityPost as CommunityPostType } from '../types';
 import { toggleLike, hasUserLikedPost, deletePost } from '../services/communityService';
 import { useAuth } from '../context/AuthContext';
 import ProductPreviewModal from './ProductPreviewModal';
+import { toast } from 'sonner';
 
 interface CommunityPostProps {
     post: CommunityPostType;
@@ -29,29 +29,36 @@ const CommunityPost: React.FC<CommunityPostProps> = ({ post, onDelete, onComment
     }, [post.id, user]);
 
     const handleLike = async () => {
-        if (!user) return;
+        if (!user) {
+            toast.error('Connectez-vous pour aimer ce post');
+            return;
+        }
 
         try {
             const isLiked = await toggleLike(post.id, user.id);
             setLiked(isLiked);
             setLikeCount(prev => isLiked ? prev + 1 : prev - 1);
+            toast.success(isLiked ? '❤️ Post aimé!' : '💔 Like retiré');
         } catch (error) {
             console.error('Error toggling like:', error);
+            toast.error('Erreur lors du like');
         }
     };
 
     const handleDelete = async () => {
         if (!user || !window.confirm('Êtes-vous sûr de vouloir supprimer ce post ?')) return;
 
+        const toastId = toast.loading('Suppression en cours...');
         try {
             setIsDeleting(true);
             await deletePost(post.id, user.id);
+            toast.success('🗑️ Post supprimé!', { id: toastId });
             if (onDelete) {
                 onDelete(post.id);
             }
-        } catch (error) {
+        } catch (error: any) {
             console.error('Error deleting post:', error);
-            alert('Erreur lors de la suppression du post');
+            toast.error(error.message || 'Erreur lors de la suppression', { id: toastId });
             setIsDeleting(false);
         }
     };
@@ -60,7 +67,7 @@ const CommunityPost: React.FC<CommunityPostProps> = ({ post, onDelete, onComment
 
     return (
         <>
-            <TiltCard
+            <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.95 }}
@@ -78,6 +85,9 @@ const CommunityPost: React.FC<CommunityPostProps> = ({ post, onDelete, onComment
                             <video
                                 src={post.content.mediaUrl}
                                 controls
+                                playsInline
+                                preload="metadata"
+                                onClick={(e) => e.stopPropagation()}
                                 className="w-full h-full object-cover"
                             />
                         ) : (
@@ -111,9 +121,12 @@ const CommunityPost: React.FC<CommunityPostProps> = ({ post, onDelete, onComment
                     {/* Delete Button for Own Posts */}
                     {isOwnPost && (
                         <button
-                            onClick={handleDelete}
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                handleDelete();
+                            }}
                             disabled={isDeleting}
-                            className="absolute top-3 left-3 p-2 bg-red-500/80 hover:bg-red-600 backdrop-blur-sm rounded-full border border-white/20 text-white transition-all opacity-0 group-hover:opacity-100 z-20"
+                            className="absolute top-3 left-3 p-2 bg-red-500/80 hover:bg-red-600 backdrop-blur-sm rounded-full border border-white/20 text-white transition-all opacity-100 z-20"
                             title="Supprimer"
                         >
                             <Trash2 size={16} />
@@ -223,7 +236,7 @@ const CommunityPost: React.FC<CommunityPostProps> = ({ post, onDelete, onComment
                         </button>
                     </div>
                 </div>
-            </TiltCard>
+            </motion.div>
 
             {/* Product/Media Preview Modal */}
             <ProductPreviewModal

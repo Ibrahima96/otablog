@@ -211,7 +211,8 @@ export const useChatTerminal = ({ initialMessage, user, lastGameResult }: UseCha
             const command = cmd.toLowerCase().trim();
 
             if (command.startsWith('/join')) {
-                const code = command.replace('/join', '').trim();
+                // Use original cmd to preserve case of the challenge code
+                const code = cmd.replace(/^\/join\s*/i, '').trim();
                 if (!code || code.length < 5) {
                     setMessages(prev => [...prev, {
                         id: Date.now().toString(),

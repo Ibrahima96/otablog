@@ -233,37 +233,67 @@ export const hasUserLikedPost = async (postId: string, userId: string): Promise<
  */
 export const deletePost = async (postId: string, userId: string): Promise<void> => {
     try {
+        console.log('[deletePost] Starting delete for post:', postId, 'user:', userId);
+
         // Verify ownership
-        const { data: post } = await supabase
+        const { data: post, error: fetchError } = await supabase
             .from('posts')
             .select('user_id, media_url')
             .eq('id', postId)
             .single();
 
-        if (!post || post.user_id !== userId) {
-            throw new Error('Non autorisé');
+        if (fetchError) {
+            console.error('[deletePost] Error fetching post:', fetchError);
+            throw new Error('Post introuvable');
         }
+
+        if (!post || post.user_id !== userId) {
+            console.error('[deletePost] Ownership check failed:', { postUserId: post?.user_id, userId });
+            throw new Error('Non autorisé - vous ne pouvez supprimer que vos propres posts');
+        }
+
+        // Try to delete related data first (likes, comments)
+        console.log('[deletePost] Deleting related likes...');
+        await supabase.from('post_likes').delete().eq('post_id', postId);
+
+        console.log('[deletePost] Deleting related comments...');
+        await supabase.from('post_comments').delete().eq('post_id', postId);
+
+        console.log('[deletePost] Deleting marketplace items...');
+        await supabase.from('marketplace_items').delete().eq('post_id', postId);
 
         // Delete media from storage if exists
         if (post.media_url) {
+            console.log('[deletePost] Deleting media:', post.media_url);
             const path = post.media_url.split('/community-media/')[1];
             if (path) {
-                await supabase.storage
+                const { error: storageError } = await supabase.storage
                     .from('community-media')
                     .remove([path]);
+                if (storageError) {
+                    console.warn('[deletePost] Storage delete warning:', storageError);
+                    // Continue anyway - post delete is more important
+                }
             }
         }
 
-        // Delete post (cascade will handle marketplace_items, likes, comments)
-        const { error } = await supabase
+        // Delete post
+        console.log('[deletePost] Deleting post from database...');
+        const { error: deleteError } = await supabase
             .from('posts')
             .delete()
-            .eq('id', postId);
+            .eq('id', postId)
+            .eq('user_id', userId); // Extra safety check
 
-        if (error) throw error;
-    } catch (error) {
-        console.error('Error deleting post:', error);
-        throw new Error('Échec de la suppression du post');
+        if (deleteError) {
+            console.error('[deletePost] Delete error:', deleteError);
+            throw deleteError;
+        }
+
+        console.log('[deletePost] Successfully deleted post:', postId);
+    } catch (error: any) {
+        console.error('[deletePost] Full error:', error);
+        throw new Error(error.message || 'Échec de la suppression du post');
     }
 };
 
