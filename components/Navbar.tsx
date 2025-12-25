@@ -22,6 +22,18 @@ const Navbar: React.FC<NavbarProps> = ({ onOpenAuth, currentView = 'home', onNav
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
+  // Lock body scroll when mobile menu is open
+  useEffect(() => {
+    if (isOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'unset';
+    }
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, [isOpen]);
+
   const navLinks = [
     { name: 'Découvrir', href: '#discover', view: 'home' as const },
     { name: 'Communauté', href: '#community', view: 'home' as const },
@@ -120,28 +132,45 @@ const Navbar: React.FC<NavbarProps> = ({ onOpenAuth, currentView = 'home', onNav
       <AnimatePresence>
         {isOpen && (
           <motion.div
-            initial={{ opacity: 0, x: '100%' }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: '100%' }}
-            transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-            className="md:hidden fixed inset-0 z-50 bg-obsidian/98  backdrop-blur-2xl p-8 flex flex-col"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="md:hidden fixed inset-0 z-50 bg-black/95 backdrop-blur-3xl p-8 flex flex-col overflow-y-auto"
           >
             <div className="flex justify-between items-center mb-12">
               <div className="flex items-center gap-2">
-                <Zap className="text-neonPink w-6 h-6" />
-                <span className="font-display font-bold text-xl text-white">OTABLOG</span>
+                <Zap className="text-neonPink w-6 h-6 animate-pulse" />
+                <span className="font-display font-bold text-xl text-white tracking-widest">OTABLOG</span>
               </div>
-              <button onClick={() => setIsOpen(false)} className="text-white p-2 border border-white/10 rounded-full">
+              <button onClick={() => setIsOpen(false)} className="text-white p-2 border border-white/10 rounded-full hover:bg-white/10 transition-colors">
                 <X />
               </button>
             </div>
 
-            <div className="flex flex-col gap-8">
+            <motion.div
+              className="flex flex-col gap-6"
+              initial="hidden"
+              animate="show"
+              variants={{
+                hidden: { opacity: 0 },
+                show: {
+                  opacity: 1,
+                  transition: {
+                    staggerChildren: 0.1
+                  }
+                }
+              }}
+            >
               {navLinks.map((link) => (
-                <a
+                <motion.a
                   key={link.name}
                   href={link.href}
-                  className={`text-3xl font-display border-b border-white/5 pb-4 ${link.view === currentView ? 'text-neonPink' : 'text-gray-300 hover:text-cyanLight'
+                  variants={{
+                    hidden: { opacity: 0, x: -20 },
+                    show: { opacity: 1, x: 0 }
+                  }}
+                  className={`text-4xl font-display font-black tracking-tight ${link.view === currentView ? 'text-transparent bg-clip-text bg-gradient-to-r from-neonPink to-neonPurple' : 'text-white hover:text-gray-300'
                     }`}
                   onClick={(e) => {
                     e.preventDefault();
@@ -150,21 +179,25 @@ const Navbar: React.FC<NavbarProps> = ({ onOpenAuth, currentView = 'home', onNav
                   }}
                 >
                   {link.name}
-                </a>
+                </motion.a>
               ))}
 
               {user && (
-                <button
+                <motion.button
+                  variants={{
+                    hidden: { opacity: 0, x: -20 },
+                    show: { opacity: 1, x: 0 }
+                  }}
                   onClick={() => {
                     onNavigate?.('quiz');
                     setIsOpen(false);
                   }}
-                  className="text-3xl text-neonPink font-display text-left border-b border-white/5 pb-4"
+                  className="text-4xl font-display font-black tracking-tight text-left text-cyanLight"
                 >
                   QUIZ BATTLE
-                </button>
+                </motion.button>
               )}
-            </div>
+            </motion.div>
 
             <div className="mt-auto pt-10 border-t border-white/10">
               {user ? (

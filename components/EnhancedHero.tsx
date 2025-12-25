@@ -270,6 +270,17 @@ const EnhancedHero: React.FC<EnhancedHeroProps> = ({ onOpenAuth, isLoggedIn }) =
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 2, duration: 1 }}
                 >
+                    <motion.div
+                        animate={{ y: [0, 10, 0] }}
+                        transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
+                        className="w-6 h-10 border-2 border-white/30 rounded-full flex justify-center p-2 backdrop-blur-sm"
+                    >
+                        <motion.div
+                            className="w-1 h-2 bg-neonPink rounded-full"
+                            animate={{ opacity: [1, 0.5, 1] }}
+                            transition={{ duration: 1.5, repeat: Infinity }}
+                        />
+                    </motion.div>
                 </motion.div>
             </motion.div>
         </header>

@@ -1,14 +1,14 @@
 import React, { useRef, useState } from 'react';
 import { motion, useMotionValue, useSpring, useTransform } from 'framer-motion';
 
-interface TiltCardProps {
+interface TiltCardProps extends React.ComponentProps<typeof motion.div> {
     children: React.ReactNode;
     className?: string;
     onClick?: () => void;
     glowColor?: string;
 }
 
-const TiltCard: React.FC<TiltCardProps> = ({ children, className = "", onClick, glowColor = "#F72585" }) => {
+const TiltCard: React.FC<TiltCardProps> = ({ children, className = "", onClick, glowColor = "#F72585", ...props }) => {
     const ref = useRef<HTMLDivElement>(null);
 
     const x = useMotionValue(0);
@@ -49,6 +49,7 @@ const TiltCard: React.FC<TiltCardProps> = ({ children, className = "", onClick, 
             onClick={onClick}
             onMouseMove={handleMouseMove}
             onMouseLeave={handleMouseLeave}
+            {...props}
             style={{
                 rotateX,
                 rotateY,

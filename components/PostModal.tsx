@@ -114,9 +114,15 @@ const PostModal: React.FC<PostModalProps> = ({ isOpen, onClose, post, onOpenAuth
 
                 <div className="p-8">
                     <div className="flex items-center gap-3 mb-6">
-                        <div className="w-12 h-12 rounded-full bg-gradient-to-br from-neonPink to-neonPurple flex items-center justify-center text-white font-bold">
-                            {post.author.username.charAt(0).toUpperCase()}
-                        </div>
+                        {post.author.avatarUrl ? (
+                            <div className="w-12 h-12 rounded-full overflow-hidden border border-neonPink/50">
+                                <img src={post.author.avatarUrl} alt={post.author.username} className="w-full h-full object-cover" />
+                            </div>
+                        ) : (
+                            <div className="w-12 h-12 rounded-full bg-gradient-to-br from-neonPink to-neonPurple flex items-center justify-center text-white font-bold">
+                                {post.author.username.charAt(0).toUpperCase()}
+                            </div>
+                        )}
                         <div>
                             <p className="text-white font-bold">{post.author.username}</p>
                             <p className="text-gray-500 text-sm">

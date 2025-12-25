@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
+import TiltCard from './TiltCard';
 import { Heart, MessageCircle, ShoppingBag, Image as ImageIcon, Video, Tag, Trash2, Eye } from 'lucide-react';
 import { CommunityPost as CommunityPostType } from '../types';
 import { toggleLike, hasUserLikedPost, deletePost } from '../services/communityService';
@@ -59,13 +60,14 @@ const CommunityPost: React.FC<CommunityPostProps> = ({ post, onDelete, onComment
 
     return (
         <>
-            <motion.div
+            <TiltCard
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.95 }}
                 className={`group bg-midnight/40 border border-white/10 rounded-xl overflow-hidden hover:border-neonPink/30 transition-all duration-300 hover:shadow-[0_0_30px_rgba(247,37,133,0.15)] ${isDeleting ? 'opacity-50 pointer-events-none' : ''
                     }`}
             >
+
                 {/* Post Media or Marketplace Preview */}
                 <div
                     onClick={() => setIsPreviewOpen(true)}
@@ -139,9 +141,15 @@ const CommunityPost: React.FC<CommunityPostProps> = ({ post, onDelete, onComment
                 <div className="p-4">
                     {/* Author Info */}
                     <div className="flex items-center gap-2 mb-3">
-                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-neonPink to-neonPurple flex items-center justify-center text-white text-xs font-bold">
-                            {post.author.username.substring(0, 2).toUpperCase()}
-                        </div>
+                        {post.author.avatarUrl ? (
+                            <div className="w-8 h-8 rounded-full overflow-hidden border border-neonPink/50">
+                                <img src={post.author.avatarUrl} alt={post.author.username} className="w-full h-full object-cover" />
+                            </div>
+                        ) : (
+                            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-neonPink to-neonPurple flex items-center justify-center text-white text-xs font-bold">
+                                {post.author.username.charAt(0).toUpperCase()}
+                            </div>
+                        )}
                         <div className="flex-1 min-w-0">
                             <p className="text-sm font-medium text-white truncate">{post.author.username}</p>
                             <p className="text-xs text-gray-500 font-mono">
@@ -215,7 +223,7 @@ const CommunityPost: React.FC<CommunityPostProps> = ({ post, onDelete, onComment
                         </button>
                     </div>
                 </div>
-            </motion.div>
+            </TiltCard>
 
             {/* Product/Media Preview Modal */}
             <ProductPreviewModal

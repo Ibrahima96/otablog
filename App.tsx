@@ -1,5 +1,6 @@
 import React, { useState, useEffect, Suspense } from 'react';
 import { Toaster } from 'sonner';
+import { motion, AnimatePresence } from 'framer-motion';
 import Navbar from './components/Navbar';
 import FloatingGallery from './components/FloatingGallery';
 import PostModal from './components/PostModal';
@@ -180,9 +181,15 @@ const RecentPostsPreview: React.FC<{ posts: CommunityPost[]; onOpenAuth: () => v
                 )}
                 <div className="p-6">
                   <div className="flex items-center gap-3 mb-3">
-                    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-neonPink to-neonPurple flex items-center justify-center text-white text-sm font-bold">
-                      {post.author.username.charAt(0).toUpperCase()}
-                    </div>
+                    {post.author.avatarUrl ? (
+                      <div className="w-8 h-8 rounded-full overflow-hidden border border-neonPink/50">
+                        <img src={post.author.avatarUrl} alt={post.author.username} className="w-full h-full object-cover" />
+                      </div>
+                    ) : (
+                      <div className="w-8 h-8 rounded-full bg-gradient-to-br from-neonPink to-neonPurple flex items-center justify-center text-white text-sm font-bold">
+                        {post.author.username.charAt(0).toUpperCase()}
+                      </div>
+                    )}
                     <div>
                       <p className="text-white font-semibold text-sm">{post.author.username}</p>
                       <p className="text-gray-500 text-xs">
@@ -381,36 +388,60 @@ const AppContent: React.FC = () => {
         />
 
         <Suspense fallback={<LoadingScreen />}>
-          {/* HOME VIEW - Hidden but kept mounted to preserve Terminal state */}
-          <div style={{ display: currentView === 'home' ? 'block' : 'none' }}>
-            <EnhancedHero onOpenAuth={() => setIsAuthOpen(true)} isLoggedIn={!!session} />
-            {session && <ChampionSection champion={null} />}
-            <FloatingGallery />
-            {/* Top Duelists Section - Placed prominently */}
-            <TopDuelists duelists={topDuelists} />
+          <AnimatePresence mode="wait">
+            {/* HOME VIEW - Persistent to keep Terminal state */}
+            {currentView === 'home' && (
+              <motion.div
+                key="home"
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: 20 }}
+                transition={{ duration: 0.3 }}
+              >
+                <EnhancedHero onOpenAuth={() => setIsAuthOpen(true)} isLoggedIn={!!session} />
+                {session && <ChampionSection champion={null} />}
+                <FloatingGallery />
+                <TopDuelists duelists={topDuelists} />
+                <EnhancedFeatures onNavigate={setCurrentView} />
+                <Community onOpenAuth={() => setIsAuthOpen(true)} />
+                <TerminalChat
+                  onOpenAuth={() => setIsAuthOpen(true)}
+                  onLaunchDuel={launchDuel}
+                  lastGameResult={lastGameResult}
+                />
+                {!session && <RecentPostsPreview posts={recentPosts} onOpenAuth={() => setIsAuthOpen(true)} />}
+              </motion.div>
+            )}
 
-            <EnhancedFeatures onNavigate={setCurrentView} />
-            <Community onOpenAuth={() => setIsAuthOpen(true)} />
-            <TerminalChat
-              onOpenAuth={() => setIsAuthOpen(true)}
-              onLaunchDuel={launchDuel}
-              lastGameResult={lastGameResult}
-            />
-            {!session && <RecentPostsPreview posts={recentPosts} onOpenAuth={() => setIsAuthOpen(true)} />}
-          </div>
+            {/* SHOP VIEW */}
+            {currentView === 'shop' && (
+              <motion.div
+                key="shop"
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -20 }}
+                transition={{ duration: 0.3 }}
+              >
+                <ShopPage onOpenAuth={() => setIsAuthOpen(true)} />
+              </motion.div>
+            )}
 
-          {/* SHOP VIEW */}
-          {currentView === 'shop' && (
-            <ShopPage onOpenAuth={() => setIsAuthOpen(true)} />
-          )}
-
-          {/* QUIZ VIEW - Conditionally rendered to reset state on new games */}
-          {currentView === 'quiz' && (
-            <AnimeQuizPage
-              initialQuestions={customQuizData}
-              onGameComplete={handleGameComplete}
-            />
-          )}
+            {/* QUIZ VIEW */}
+            {currentView === 'quiz' && (
+              <motion.div
+                key="quiz"
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 1.05 }}
+                transition={{ duration: 0.3 }}
+              >
+                <AnimeQuizPage
+                  initialQuestions={customQuizData}
+                  onGameComplete={handleGameComplete}
+                />
+              </motion.div>
+            )}
+          </AnimatePresence>
         </Suspense>
 
         <Footer />
