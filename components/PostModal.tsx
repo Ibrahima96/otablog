@@ -90,7 +90,7 @@ const PostModal: React.FC<PostModalProps> = ({ isOpen, onClose, post, onOpenAuth
     if (!isOpen || !post) return null;
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm" onClick={onClose}>
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm" onClick={onClose}>
             <div
                 className="relative w-full max-w-3xl bg-midnight border border-white/10 rounded-2xl shadow-2xl max-h-[90vh] overflow-y-auto"
                 onClick={(e) => e.stopPropagation()}

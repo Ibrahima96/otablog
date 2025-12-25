@@ -29,6 +29,31 @@ class DuelService {
     }
 
     /**
+     * Get the current champion (Top #1)
+     */
+    async getChampion() {
+        try {
+            const topDuelists = await this.getTopDuelists(1);
+            if (topDuelists.length === 0) return null;
+
+            const champion = topDuelists[0];
+
+            // Fetch extra profile details for the champion (bio, etc)
+            const profile = await this.getUserProfile(champion.userId);
+
+            return {
+                name: champion.username,
+                image: champion.avatarUrl || `https://ui-avatars.com/api/?name=${champion.username}&background=random`,
+                description: profile?.bio || "Le maître incontesté du quiz. Oserez-vous le défier ?",
+                wins: profile?.duel_wins || champion.score, // Use wins or score
+            };
+        } catch (error) {
+            console.error('Error fetching champion:', error);
+            return null;
+        }
+    }
+
+    /**
      * Save or update a quiz score
      * Returns true if it's a new high score for the leaderboard
      */
@@ -49,6 +74,15 @@ class DuelService {
                 .eq('user_id', effectiveUserId)
                 .single();
 
+            // Fetch user profile to ensure we have the latest avatar
+            const { data: profile } = await supabase
+                .from('profiles')
+                .select('avatar_url')
+                .eq('id', effectiveUserId)
+                .single();
+
+            const avatarUrl = profile?.avatar_url || '';
+
             if (existingScore) {
                 // Update only if new score is higher
                 if (score > existingScore.score) {
@@ -57,6 +91,7 @@ class DuelService {
                         .update({
                             score,
                             username,
+                            avatar_url: avatarUrl, // Force update avatar
                             updated_at: new Date().toISOString()
                         })
                         .eq('user_id', effectiveUserId);
@@ -73,6 +108,7 @@ class DuelService {
                         user_id: effectiveUserId,
                         username,
                         score,
+                        avatar_url: avatarUrl, // Insert avatar
                         category: 'general'
                     });
 

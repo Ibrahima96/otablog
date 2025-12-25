@@ -319,6 +319,7 @@ const AppContent: React.FC = () => {
   const [customQuizData, setCustomQuizData] = useState<any>(null);
   const [recentPosts, setRecentPosts] = useState<CommunityPost[]>([]);
   const [topDuelists, setTopDuelists] = useState<QuizScore[]>([]);
+  const [champion, setChampion] = useState<any>(null);
   const [lastGameResult, setLastGameResult] = useState<{ score: number, topic: string } | null>(null);
 
   useEffect(() => {
@@ -338,12 +339,18 @@ const AppContent: React.FC = () => {
   }, []);
 
   const loadData = async () => {
-    const [posts, duelists] = await Promise.all([
-      communityService.getPosts({ limit: 3 }),
-      duelService.getTopDuelists()
-    ]);
-    setRecentPosts(posts);
-    setTopDuelists(duelists);
+    try {
+      const [posts, duelists, champ] = await Promise.all([
+        communityService.getPosts({ limit: 3 }),
+        duelService.getTopDuelists(),
+        duelService.getChampion()
+      ]);
+      setRecentPosts(posts);
+      setTopDuelists(duelists);
+      setChampion(champ);
+    } catch (error) {
+      console.error('Error loading data:', error);
+    }
   };
 
   const launchDuel = (questions: any) => {
@@ -399,7 +406,7 @@ const AppContent: React.FC = () => {
                 transition={{ duration: 0.3 }}
               >
                 <EnhancedHero onOpenAuth={() => setIsAuthOpen(true)} isLoggedIn={!!session} />
-                {session && <ChampionSection champion={null} />}
+                {session && <ChampionSection champion={champion} />}
                 <FloatingGallery />
                 <TopDuelists duelists={topDuelists} />
                 <EnhancedFeatures onNavigate={setCurrentView} />
