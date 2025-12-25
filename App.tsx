@@ -470,7 +470,7 @@ const App: React.FC = () => {
     <AuthProvider>
       <CartProvider>
         <FeedbackOverseer>
-          {/* <Toaster position="bottom-rigth" theme="dark" richColors closeButton /> */}
+          <Toaster position="bottom-right" theme="dark" richColors closeButton />
           <AppContent />
         </FeedbackOverseer>
       </CartProvider>

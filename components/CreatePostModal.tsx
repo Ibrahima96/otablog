@@ -4,6 +4,7 @@ import { X, Image as ImageIcon, Video, ShoppingBag, Upload, DollarSign, Tag, Che
 import { PostType, CommunityPost } from '../types';
 import { createPost } from '../services/communityService';
 import { useAuth } from '../context/AuthContext';
+import { toast } from 'sonner';
 
 interface CreatePostModalProps {
     isOpen: boolean;
@@ -142,6 +143,7 @@ const CreatePostModal: React.FC<CreatePostModalProps> = ({ isOpen, onClose, onPo
             console.log('✅ [CreatePostModal] Post created successfully:', newPost);
 
             setUploadSuccess(true);
+            toast.success('🎉 Post publié avec succès!');
 
             // Notify parent component
             if (onPostCreated) {
@@ -159,6 +161,7 @@ const CreatePostModal: React.FC<CreatePostModalProps> = ({ isOpen, onClose, onPo
             console.error('Error message:', errorMessage);
             console.error('Error stack:', err.stack);
             setError(errorMessage);
+            toast.error(errorMessage);
             setIsUploading(false);
         }
     };

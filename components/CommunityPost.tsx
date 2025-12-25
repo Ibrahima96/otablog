@@ -29,19 +29,14 @@ const CommunityPost: React.FC<CommunityPostProps> = ({ post, onDelete, onComment
     }, [post.id, user]);
 
     const handleLike = async () => {
-        if (!user) {
-            toast.error('Connectez-vous pour aimer ce post');
-            return;
-        }
+        if (!user) return;
 
         try {
             const isLiked = await toggleLike(post.id, user.id);
             setLiked(isLiked);
             setLikeCount(prev => isLiked ? prev + 1 : prev - 1);
-            toast.success(isLiked ? '❤️ Post aimé!' : '💔 Like retiré');
         } catch (error) {
             console.error('Error toggling like:', error);
-            toast.error('Erreur lors du like');
         }
     };
 
