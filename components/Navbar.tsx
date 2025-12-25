@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { Menu, X, Zap, User, LogOut, ShoppingBag } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
@@ -128,103 +129,106 @@ const Navbar: React.FC<NavbarProps> = ({ onOpenAuth, currentView = 'home', onNav
         </button>
       </div>
 
-      {/* Mobile Menu Overlay */}
-      <AnimatePresence>
-        {isOpen && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.2 }}
-            className="md:hidden fixed inset-0 z-50 bg-black/95 backdrop-blur-3xl p-8 flex flex-col overflow-y-auto"
-          >
-            <div className="flex justify-between items-center mb-12">
-              <div className="flex items-center gap-2">
-                <Zap className="text-neonPink w-6 h-6 animate-pulse" />
-                <span className="font-display font-bold text-xl text-white tracking-widest">OTABLOG</span>
-              </div>
-              <button onClick={() => setIsOpen(false)} className="text-white p-2 border border-white/10 rounded-full hover:bg-white/10 transition-colors">
-                <X />
-              </button>
-            </div>
-
+      {/* Mobile Menu Overlay - Portalled to body to avoid clipping context */}
+      {typeof document !== 'undefined' && createPortal(
+        <AnimatePresence>
+          {isOpen && (
             <motion.div
-              className="flex flex-col gap-6"
-              initial="hidden"
-              animate="show"
-              variants={{
-                hidden: { opacity: 0 },
-                show: {
-                  opacity: 1,
-                  transition: {
-                    staggerChildren: 0.1
-                  }
-                }
-              }}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="fixed inset-0 z-[200] bg-black/95 backdrop-blur-3xl p-8 flex flex-col overflow-y-auto"
             >
-              {navLinks.map((link) => (
-                <motion.a
-                  key={link.name}
-                  href={link.href}
-                  variants={{
-                    hidden: { opacity: 0, x: -20 },
-                    show: { opacity: 1, x: 0 }
-                  }}
-                  className={`text-4xl font-display font-black tracking-tight ${link.view === currentView ? 'text-transparent bg-clip-text bg-gradient-to-r from-neonPink to-neonPurple' : 'text-white hover:text-gray-300'
-                    }`}
-                  onClick={(e) => {
-                    e.preventDefault();
-                    onNavigate?.(link.view);
-                    setIsOpen(false);
-                  }}
-                >
-                  {link.name}
-                </motion.a>
-              ))}
-
-              {user && (
-                <motion.button
-                  variants={{
-                    hidden: { opacity: 0, x: -20 },
-                    show: { opacity: 1, x: 0 }
-                  }}
-                  onClick={() => {
-                    onNavigate?.('quiz');
-                    setIsOpen(false);
-                  }}
-                  className="text-4xl font-display font-black tracking-tight text-left text-cyanLight"
-                >
-                  QUIZ BATTLE
-                </motion.button>
-              )}
-            </motion.div>
-
-            <div className="mt-auto pt-10 border-t border-white/10">
-              {user ? (
-                <div className="flex flex-col gap-6">
-                  <div className="flex items-center gap-3 text-cyanLight font-mono">
-                    <User size={20} />
-                    <span className="text-lg">{user.email}</span>
-                  </div>
-                  <button
-                    onClick={() => { signOut(); setIsOpen(false); }}
-                    className="w-full text-center py-4 rounded-xl border border-red-500/30 text-red-500 font-bold"
-                  >
-                    Déconnexion
-                  </button>
+              <div className="flex justify-between items-center mb-12">
+                <div className="flex items-center gap-2">
+                  <Zap className="text-neonPink w-6 h-6 animate-pulse" />
+                  <span className="font-display font-bold text-xl text-white tracking-widest">OTABLOG</span>
                 </div>
-              ) : (
-                <button
-                  onClick={() => { onOpenAuth(); setIsOpen(false); }}
-                  className="w-full bg-gradient-to-r from-neonPurple to-neonPink py-5 rounded-xl font-display font-bold text-white tracking-widest uppercase shadow-[0_0_30px_rgba(247,37,133,0.3)]"
-                >
-                  Connexion
+                <button onClick={() => setIsOpen(false)} className="text-white p-2 border border-white/10 rounded-full hover:bg-white/10 transition-colors">
+                  <X />
                 </button>
-              )}
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+              </div>
+
+              <motion.div
+                className="flex flex-col gap-6"
+                initial="hidden"
+                animate="show"
+                variants={{
+                  hidden: { opacity: 0 },
+                  show: {
+                    opacity: 1,
+                    transition: {
+                      staggerChildren: 0.1
+                    }
+                  }
+                }}
+              >
+                {navLinks.map((link) => (
+                  <motion.a
+                    key={link.name}
+                    href={link.href}
+                    variants={{
+                      hidden: { opacity: 0, x: -20 },
+                      show: { opacity: 1, x: 0 }
+                    }}
+                    className={`text-4xl font-display font-black tracking-tight ${link.view === currentView ? 'text-transparent bg-clip-text bg-gradient-to-r from-neonPink to-neonPurple' : 'text-white hover:text-gray-300'
+                      }`}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      onNavigate?.(link.view);
+                      setIsOpen(false);
+                    }}
+                  >
+                    {link.name}
+                  </motion.a>
+                ))}
+
+                {user && (
+                  <motion.button
+                    variants={{
+                      hidden: { opacity: 0, x: -20 },
+                      show: { opacity: 1, x: 0 }
+                    }}
+                    onClick={() => {
+                      onNavigate?.('quiz');
+                      setIsOpen(false);
+                    }}
+                    className="text-4xl font-display font-black tracking-tight text-left text-cyanLight"
+                  >
+                    QUIZ BATTLE
+                  </motion.button>
+                )}
+              </motion.div>
+
+              <div className="mt-auto pt-10 border-t border-white/10">
+                {user ? (
+                  <div className="flex flex-col gap-6">
+                    <div className="flex items-center gap-3 text-cyanLight font-mono">
+                      <User size={20} />
+                      <span className="text-lg">{user.email}</span>
+                    </div>
+                    <button
+                      onClick={() => { signOut(); setIsOpen(false); }}
+                      className="w-full text-center py-4 rounded-xl border border-red-500/30 text-red-500 font-bold"
+                    >
+                      Déconnexion
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => { onOpenAuth(); setIsOpen(false); }}
+                    className="w-full bg-gradient-to-r from-neonPurple to-neonPink py-5 rounded-xl font-display font-bold text-white tracking-widest uppercase shadow-[0_0_30px_rgba(247,37,133,0.3)]"
+                  >
+                    Connexion
+                  </button>
+                )}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>,
+        document.body
+      )}
     </nav>
   );
 };
