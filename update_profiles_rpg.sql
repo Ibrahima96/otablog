@@ -1,28 +1,27 @@
 -- ============================================
--- USER PROFILES & RPG GAMIFICATION
+-- USER PROFILES & RPG GAMIFICATION (SAFE UPDATE)
 -- ============================================
 
--- 1. Create PROFILES table with RPG Stats
--- This extends auth.users with public profile and game data
+-- 1. Create PROFILES table ONLY IF IT DOES NOT EXIST
 CREATE TABLE IF NOT EXISTS profiles (
     id UUID REFERENCES auth.users(id) ON DELETE CASCADE PRIMARY KEY,
-    username TEXT UNIQUE,
-    avatar_url TEXT,
-    bio TEXT,
-    
-    -- RPG Stats
-    xp INTEGER DEFAULT 0,
-    level INTEGER DEFAULT 1,
-    title TEXT DEFAULT 'Novice',
-    duel_wins INTEGER DEFAULT 0,
-    duel_total INTEGER DEFAULT 0,
-    favorite_manga TEXT,
-    
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 2. RLS for Profiles
+-- 2. Add Columns SAFELY (will not fail if columns exist)
+ALTER TABLE profiles 
+ADD COLUMN IF NOT EXISTS username TEXT UNIQUE,
+ADD COLUMN IF NOT EXISTS avatar_url TEXT,
+ADD COLUMN IF NOT EXISTS bio TEXT,
+ADD COLUMN IF NOT EXISTS xp INTEGER DEFAULT 0,
+ADD COLUMN IF NOT EXISTS level INTEGER DEFAULT 1,
+ADD COLUMN IF NOT EXISTS title TEXT DEFAULT 'Novice',
+ADD COLUMN IF NOT EXISTS duel_wins INTEGER DEFAULT 0,
+ADD COLUMN IF NOT EXISTS duel_total INTEGER DEFAULT 0,
+ADD COLUMN IF NOT EXISTS favorite_manga TEXT;
+
+-- 3. RLS for Profiles
 ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Public profiles are viewable by everyone" ON profiles;
@@ -40,25 +39,6 @@ CREATE POLICY "Users can update own profile"
     ON profiles FOR UPDATE
     USING (auth.uid() = id);
 
--- 3. Trigger to Auto-Create Profile on Signup
-CREATE OR REPLACE FUNCTION public.handle_new_user()
-RETURNS TRIGGER AS $$
-BEGIN
-    INSERT INTO public.profiles (id, username, avatar_url)
-    VALUES (
-        NEW.id,
-        COALESCE(NEW.raw_user_meta_data->>'username', SPLIT_PART(NEW.email, '@', 1)),
-        NEW.raw_user_meta_data->>'avatar_url'
-    );
-    RETURN NEW;
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
-
-DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
-CREATE TRIGGER on_auth_user_created
-    AFTER INSERT ON auth.users
-    FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
-
 -- 4. Improve QUIZ_SCORES table (Add avatar/level cache)
 ALTER TABLE quiz_scores ADD COLUMN IF NOT EXISTS avatar_url TEXT;
 ALTER TABLE quiz_scores ADD COLUMN IF NOT EXISTS level INTEGER DEFAULT 1;
@@ -71,21 +51,23 @@ DECLARE
     user_name TEXT;
     current_xp INTEGER;
     new_level INTEGER;
-    xp_gain INTEGER := 10; -- Default XP for just playing/updating score
 BEGIN
     -- 1. Sync User Details from Profile
-    SELECT avatar_url, username, xp, level INTO user_avatar, user_name, current_xp, new_level
-    FROM profiles
-    WHERE id = NEW.user_id;
+    -- We select with a LEFT JOIN logic (conceptually) by looking up the profile
+    BEGIN
+        SELECT avatar_url, username, xp, level INTO user_avatar, user_name, current_xp, new_level
+        FROM profiles
+        WHERE id = NEW.user_id;
 
-    IF user_avatar IS NOT NULL THEN NEW.avatar_url := user_avatar; END IF;
-    IF user_name IS NOT NULL THEN NEW.username := user_name; END IF;
-    IF new_level IS NOT NULL THEN NEW.level := new_level; END IF;
+        IF user_avatar IS NOT NULL THEN NEW.avatar_url := user_avatar; END IF;
+        IF user_name IS NOT NULL THEN NEW.username := user_name; END IF;
+        IF new_level IS NOT NULL THEN NEW.level := new_level; END IF;
+    EXCEPTION 
+        WHEN OTHERS THEN
+            -- If profile doesn't exist or error, just ignore sync
+            NULL;
+    END;
 
-    -- 2. Gamification Logic (Only on INSERT or meaningful score improvement)
-    -- This part logic relies on application side calling an RPCl ideally, 
-    -- but here we just ensure the score table reflects the user's current level.
-    
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
@@ -106,15 +88,21 @@ DECLARE
     new_level INTEGER;
     new_title TEXT;
 BEGIN
+    -- Ensure profile exists
+    INSERT INTO profiles (id) VALUES (user_id) ON CONFLICT (id) DO NOTHING;
+
     SELECT xp, level INTO current_xp, current_level FROM profiles WHERE id = user_id;
+    
+    -- Default values if null
+    IF current_xp IS NULL THEN current_xp := 0; END IF;
+    IF current_level IS NULL THEN current_level := 1; END IF;
     
     new_xp := current_xp + amount;
     
-    -- Level Formula: 100 * (level ^ 1.5) approx
-    -- Simple linear for now: 100 XP per level
+    -- Level Formula: 100 XP per level (simple)
     new_level := FLOOR(new_xp / 100) + 1;
     
-    -- Titles
+    -- Titles based on level
     IF new_level >= 50 THEN new_title := 'Hokage';
     ELSIF new_level >= 20 THEN new_title := 'Pilier';
     ELSIF new_level >= 10 THEN new_title := 'Jonin';
@@ -134,5 +122,7 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 -- 7. Permissions
 GRANT ALL ON TABLE profiles TO authenticated;
 GRANT SELECT ON TABLE profiles TO anon;
+GRANT EXECUTE ON FUNCTION add_xp TO authenticated;
+GRANT EXECUTE ON FUNCTION add_xp TO anon;
 
-SELECT count(*) as result FROM profiles;
+SELECT 'Profile RPG columns added successfully' as status;

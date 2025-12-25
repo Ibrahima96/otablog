@@ -1,4 +1,5 @@
 import React, { useState, useEffect, Suspense } from 'react';
+import { Toaster } from 'sonner';
 import Navbar from './components/Navbar';
 import FloatingGallery from './components/FloatingGallery';
 import PostModal from './components/PostModal';
@@ -21,6 +22,8 @@ import { duelService } from './services/duelService';
 import TopDuelists from './components/TopDuelists';
 import { FeedbackOverseer } from './components/FeedbackOverseer';
 import ErrorBoundary from './components/ErrorBoundary';
+
+// ...
 
 // Lazy load heavy components
 const TerminalChat = React.lazy(() => import('./components/TerminalChat'));
@@ -429,6 +432,7 @@ const App: React.FC = () => {
     <AuthProvider>
       <CartProvider>
         <FeedbackOverseer>
+          <Toaster position="top-center" theme="dark" richColors closeButton />
           <AppContent />
         </FeedbackOverseer>
       </CartProvider>

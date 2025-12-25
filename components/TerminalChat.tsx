@@ -3,6 +3,10 @@ import { Send, Terminal, Cpu, Lock, LogIn, Command } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useChatTerminal } from '../hooks/useChatTerminal';
 import MatrixRain from './MatrixRain';
+import ProfileCard from './ProfileCard';
+import { supabase } from '../services/supabaseClient';
+import { duelService } from '../services/duelService';
+import { toast } from 'sonner';
 
 interface TerminalChatProps {
   onOpenAuth?: () => void;
@@ -13,6 +17,7 @@ interface TerminalChatProps {
 const TerminalChat: React.FC<TerminalChatProps> = ({ onOpenAuth, onLaunchDuel, lastGameResult }) => {
   const { user } = useAuth();
   const scrollRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [input, setInput] = React.useState('');
 
   const { messages, sendMessage, isLoading, isMatrixMode, isHypnosisActive, triggerHypnosis } = useChatTerminal({
@@ -37,6 +42,41 @@ const TerminalChat: React.FC<TerminalChatProps> = ({ onOpenAuth, onLaunchDuel, l
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [messages]);
+
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !user) return;
+
+    // Show uploading state
+    const toastId = toast.loading("Upload de l'avatar en cours...");
+
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `avatars/${user.id}-${Date.now()}.${fileExt}`;
+
+      // Upload to 'community-media' bucket
+      const { error: uploadError } = await supabase.storage
+        .from('community-media')
+        .upload(fileName, file);
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('community-media')
+        .getPublicUrl(fileName);
+
+      // Update profile
+      await duelService.updateProfile(user.id, { avatar_url: publicUrl });
+
+      // Refresh profile card by sending command again (simulates refresh)
+      sendMessage('/profile');
+      toast.success("Avatar mis à jour avec succès !", { id: toastId });
+
+    } catch (error) {
+      console.error('Avatar upload error:', error);
+      toast.error("Erreur lors de l'upload de l'image.", { id: toastId });
+    }
+  };
 
   const handleSend = () => {
     if (!input.trim()) return;
@@ -189,6 +229,16 @@ const TerminalChat: React.FC<TerminalChatProps> = ({ onOpenAuth, onLaunchDuel, l
                           </button>
                         </div>
                       )}
+
+                      {/* Render Profile Card if present */}
+                      {msg.data?.type === 'profile_card' && (
+                        <div className="mt-4">
+                          <ProfileCard
+                            {...msg.data.payload}
+                            onAvatarClick={() => fileInputRef.current?.click()}
+                          />
+                        </div>
+                      )}
                     </>
                   )}
                 </div>
@@ -221,6 +271,15 @@ const TerminalChat: React.FC<TerminalChatProps> = ({ onOpenAuth, onLaunchDuel, l
               {isLoading ? <Cpu className="w-6 h-6 md:w-5 md:h-5" /> : <Send className="w-6 h-6 md:w-5 md:h-5" />}
             </button>
           </div>
+
+          {/* Hidden File Input */}
+          <input
+            type="file"
+            ref={fileInputRef}
+            className="hidden"
+            accept="image/*"
+            onChange={handleFileSelect}
+          />
         </div>
 
         <div className="mt-4 flex justify-between text-[10px] text-gray-600 font-mono uppercase tracking-widest">

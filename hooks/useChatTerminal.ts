@@ -642,11 +642,89 @@ export const useChatTerminal = ({ initialMessage, user, lastGameResult }: UseCha
                 return true;
             }
 
+            if (command === '/profile' || command === '/rank' || command === '/me') {
+                if (!user) {
+                    setMessages(prev => [...prev, {
+                        id: Date.now().toString(),
+                        role: 'model',
+                        text: '❌ Connectez-vous pour voir votre profil.'
+                    }]);
+                    return true;
+                }
+
+                setMessages(prev => [...prev, {
+                    id: Date.now().toString(),
+                    role: 'model',
+                    text: `🆔 ACCÈS AU DOSSIER PERSONNEL...\n\nRécupération des données RPG...`,
+                    isTyping: true
+                }]);
+
+                try {
+                    // Try getting from profiles table first
+                    let profile = await duelService.getUserProfile(user.id);
+
+                    // Fallback to simpler stats if profile empty (should not happen with triggers)
+                    if (!profile) {
+                        // Force create/fetch via stats command logic kind of
+                        const stats = await duelService.getUserBestScore(user.id);
+                        profile = {
+                            username: user.user_metadata?.username || user.email?.split('@')[0],
+                            avatar_url: user.user_metadata?.avatar_url,
+                            level: 1,
+                            xp: 0,
+                            title: 'Novice',
+                            duel_wins: 0,
+                            duel_total: 0,
+                            rank: 'C-RANK'
+                        };
+                    }
+
+                    // Calculate rank (optional fallback logic)
+                    const rank = profile.level >= 50 ? 'S-RANK' : profile.level >= 20 ? 'A-RANK' : profile.level >= 10 ? 'B-RANK' : 'C-RANK';
+
+                    setMessages(prev => {
+                        const filtered = prev.filter(m => !m.isTyping);
+                        return [...filtered, {
+                            id: Date.now().toString(),
+                            role: 'model',
+                            text: `🆔 IDENTITÉ CONFIRMÉE : ${profile.username}`,
+                            data: {
+                                type: 'profile_card',
+                                payload: {
+                                    username: profile.username || 'Inconnu',
+                                    avatarUrl: profile.avatar_url,
+                                    level: profile.level || 1,
+                                    xp: profile.xp || 0,
+                                    title: profile.title || 'Vagabond',
+                                    wins: profile.duel_wins || 0,
+                                    totalGames: profile.duel_total || 0,
+                                    rank: rank,
+                                    isOwnProfile: true, // Only for /profile command for now
+                                    userId: user.id // Pass ID for updates
+                                }
+                            }
+                        }];
+                    });
+
+                } catch (error) {
+                    console.error('Profile fetch error:', error);
+                    setMessages(prev => {
+                        const filtered = prev.filter(m => !m.isTyping);
+                        return [...filtered, {
+                            id: Date.now().toString(),
+                            role: 'model',
+                            text: '❌ Erreur lors du chargement du profil.'
+                        }];
+                    });
+                }
+                return true;
+            }
+
             switch (command) {
                 case '/clear': clearHistory(); return true;
                 case '/matrix': setIsMatrixMode(prev => !prev);
                     setMessages(prev => [...prev, { id: 'sys-' + Date.now(), role: 'model', text: !isMatrixMode ? '🟢 Mode Matrix activé.' : '🔴 Mode Matrix désactivé.' }]); return true;
-                case '/help': setMessages(prev => [...prev, { id: 'hel-' + Date.now(), role: 'model', text: `📖 COMMANDES DISPONIBLES\n\n🎮 DUELS & QUIZ\n> /duel [sujet] - Créer un défi\n> /solo [sujet] - S'entraîner\n> /join [code] - Rejoindre un défi\n\n🏆 SOCIAL\n> /leaderboard - Top 10 joueurs\n> /stats - Vos statistiques\n> /share [code] - Partager WhatsApp\n\n🎲 FUN\n> /fortune - Citation otaku\n> /8ball [question] - Boule magique\n> /flip - Pile ou face\n> /roll [XdY] - Lancer de dés\n\n💬 CHAT IA\n> Tapez sans / pour discuter\n\n⚙️ SYSTÈME\n> /help - Cette aide\n> /guide - Tutoriel animé\n> /clear - Nettoyer\n> /matrix - Mode Matrix\n> /system - Stats système\n\n💡 Tapez /guide pour le tutoriel complet !` }]); return true;
+                case '/help': setMessages(prev => [...prev, { id: 'hel-' + Date.now(), role: 'model', text: `📖 COMMANDES DISPONIBLES\n\n🎮 DUELS & QUIZ\n> /duel [sujet] - Créer un défi\n> /solo [sujet] - S'entraîner\n> /join [code] - Rejoindre un défi\n\n🏆 SOCIAL & RPG\n> /profile - Voir votre carte RPG 🆕\n> /leaderboard - Top 10 joueurs\n> /stats - Vos statistiques\n> /share [code] - Partager WhatsApp\n\n🎲 FUN\n> /fortune - Citation otaku\n> /8ball [question] - Boule magique\n> /flip - Pile ou face\n> /roll [XdY] - Lancer de dés\n\n💬 CHAT IA\n> Tapez sans / pour discuter\n\n⚙️ SYSTÈME\n> /help - Cette aide\n> /guide - Tutoriel animé\n> /clear - Nettoyer\n> /matrix - Mode Matrix\n> /system - Stats système\n\n💡 Tapez /guide pour le tutoriel complet !` }]); return true;
                 case '/system': setMessages(prev => [...prev, { id: 'sys-' + Date.now(), role: 'model', text: `⚡ STATS SYSTÈME\n\n🟢 Status: ONLINE\n🤖 IA: Gemini Flash 2.0\n💾 Base: Supabase\n🎮 Défis: Persistants\n📊 Version: OtaBot v3.0\n\nTout fonctionne parfaitement ! ✨` }]); return true;
                 default: return false;
             }

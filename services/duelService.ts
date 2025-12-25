@@ -126,6 +126,73 @@ class DuelService {
             return null;
         }
     }
+
+    /**
+     * Get full user profile with RPG stats
+     */
+    async getUserProfile(userId: string) {
+        try {
+            const { data, error } = await supabase
+                .from('profiles')
+                .select('*')
+                .eq('id', userId)
+                .single();
+
+            if (error) throw error;
+            return data;
+        } catch (error) {
+            console.error('Error fetching profile:', error);
+            return null;
+        }
+    }
+
+    /**
+     * Add XP to user (and potentially level up)
+     */
+    async addXp(userId: string, amount: number) {
+        try {
+            const { error } = await supabase.rpc('add_xp', {
+                user_id: userId,
+                amount: amount
+            });
+
+            if (error) {
+                // Fallback if RPC not available: Manual update
+                console.warn('RPC add_xp failed, trying manual update...');
+                const profile = await this.getUserProfile(userId);
+                if (profile) {
+                    const newXp = (profile.xp || 0) + amount;
+                    const newLevel = Math.floor(newXp / 100) + 1;
+
+                    await supabase
+                        .from('profiles')
+                        .update({ xp: newXp, level: newLevel, updated_at: new Date() })
+                        .eq('id', userId);
+                }
+            }
+            return true;
+        } catch (error) {
+            console.error('Error adding XP:', error);
+            return false;
+        }
+    }
+    /**
+     * Update user profile fields
+     */
+    async updateProfile(userId: string, updates: { avatar_url?: string; title?: string; bio?: string }) {
+        try {
+            const { error } = await supabase
+                .from('profiles')
+                .update({ ...updates, updated_at: new Date() })
+                .eq('id', userId);
+
+            if (error) throw error;
+            return true;
+        } catch (error) {
+            console.error('Error updating profile:', error);
+            return false;
+        }
+    }
 }
 
 export const duelService = new DuelService();
