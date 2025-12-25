@@ -8,7 +8,7 @@ interface NeuralGuideProps {
 
 const STEPS = [
     {
-        title: "BIENVENUE, OTAKU",
+        title: "BIENVENUE, OTAKUROSH",
         description: "Vous venez d'entrer dans la zone neurale d'OtaBlog. Laissez-moi vous guider à travers les protocoles de ce hub futuriste.",
         icon: <Sparkles className="w-12 h-12 text-neonPink" />,
         color: "from-neonPink/20 to-transparent",
@@ -27,6 +27,13 @@ const STEPS = [
         icon: <Brain className="w-12 h-12 text-neonPurple" />,
         color: "from-neonPurple/20 to-transparent",
         glow: "shadow-[0_0_30px_rgba(114,9,183,0.3)]"
+    },
+    {
+        title: "PROGRESSION RPG",
+        description: "Gagnez de l'XP à chaque duel. Montez de niveau (Genin → Hokage), débloquez des titres et dominez le Leaderboard OtaBlog.",
+        icon: <Trophy className="w-12 h-12 text-neonPink" />,
+        color: "from-neonPink/20 to-transparent",
+        glow: "shadow-[0_0_30px_rgba(247,37,133,0.3)]"
     },
     {
         title: "COMMUNAUTÉ AURA",
