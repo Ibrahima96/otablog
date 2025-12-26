@@ -7,6 +7,7 @@ import { useAuth } from '../context/AuthContext';
 import ProductPreviewModal from './ProductPreviewModal';
 import FollowButton from './FollowButton';
 import { toast } from 'sonner';
+import { useSoundEffects } from '../hooks/useSoundEffects';
 
 interface CommunityPostProps {
     post: CommunityPostType;
@@ -24,6 +25,7 @@ const CommunityPost: React.FC<CommunityPostProps> = ({
     onLikeChange
 }) => {
     const { user } = useAuth();
+    const { playClick, playHover, playSuccess } = useSoundEffects();
     const isMarketplace = post.type === 'marketplace';
     const [liked, setLiked] = useState(false);
     const [likeCount, setLikeCount] = useState(post.likes);
@@ -45,8 +47,10 @@ const CommunityPost: React.FC<CommunityPostProps> = ({
     const handleLike = async () => {
         if (!user) return;
 
+        playClick();
         try {
             const isLiked = await toggleLike(post.id, user.id);
+            if (isLiked) playSuccess();
             setLiked(isLiked);
             const newCount = isLiked ? likeCount + 1 : likeCount - 1;
             setLikeCount(newCount);
@@ -84,6 +88,7 @@ const CommunityPost: React.FC<CommunityPostProps> = ({
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.95 }}
+                onMouseEnter={() => playHover()}
                 className={`group bg-midnight/40 border border-white/10 rounded-xl overflow-hidden hover:border-neonPink/30 transition-all duration-300 hover:shadow-[0_0_30px_rgba(247,37,133,0.15)] ${isDeleting ? 'opacity-50 pointer-events-none' : ''}`}
             >
                 <div className="flex flex-col h-full">

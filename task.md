@@ -5,7 +5,7 @@
 - [x] Implémenter le composant UI `GachaSystem.tsx`
 - [x] Mettre à jour `gamificationService.ts`
 - [x] Intégrer dans `ShopPage.tsx`
-- [ ] Vérifier le bon fonctionnement (Exécuter cheat_codes.sql pour l'Aura)
+- [x] Vérifier le bon fonctionnement (Exécuter cheat_codes.sql pour l'Aura)
 
 
 ## Manga Grid Layout 🖼️
@@ -13,4 +13,4 @@
 - [x] Revert to Classic Grid (à la demande de l'utilisateur)
 
 ## Next Steps
-- [ ] Sound Design (SFX)
+- [/] Sound Design (SFX)

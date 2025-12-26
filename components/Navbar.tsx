@@ -4,6 +4,7 @@ import { Menu, X, Zap, User, LogOut, ShoppingBag } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../services/supabaseClient';
+import { useSoundEffects } from '../hooks/useSoundEffects';
 
 interface NavbarProps {
   onOpenAuth: () => void;
@@ -15,6 +16,7 @@ const Navbar: React.FC<NavbarProps> = ({ onOpenAuth, currentView = 'home', onNav
   const [scrolled, setScrolled] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
   const { user, signOut } = useAuth();
+  const { playHover, playClick } = useSoundEffects();
 
   useEffect(() => {
     const handleScroll = () => {

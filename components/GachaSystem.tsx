@@ -4,6 +4,7 @@ import { Sparkles, Star, AlertCircle, Package } from 'lucide-react';
 import { gamificationService } from '../services/gamificationService';
 import { useAuth } from '../context/AuthContext';
 import { toast } from 'sonner';
+import { useSoundEffects } from '../hooks/useSoundEffects';
 
 interface GachaProps {
     userAura: number;
@@ -26,6 +27,7 @@ const RARITY_LABELS = {
 
 const GachaSystem: React.FC<GachaProps> = ({ userAura, onSummonComplete }) => {
     const { user } = useAuth();
+    const { playClick, playGachaRoll, playGachaReveal, playError } = useSoundEffects();
     const [isSummoning, setIsSummoning] = useState(false);
     const [result, setResult] = useState<any | null>(null);
     const SUMMON_COST = 100;
@@ -33,12 +35,15 @@ const GachaSystem: React.FC<GachaProps> = ({ userAura, onSummonComplete }) => {
     const handleSummon = async () => {
         if (!user) return;
         if (userAura < SUMMON_COST) {
+            playError();
             toast.error('Pas assez d\'Aura !');
             return;
         }
 
+        playClick();
         setIsSummoning(true);
         setResult(null);
+        playGachaRoll();
 
         try {
             // Fake delay for suspense
@@ -48,14 +53,17 @@ const GachaSystem: React.FC<GachaProps> = ({ userAura, onSummonComplete }) => {
 
             if (response.success) {
                 setResult(response);
+                playGachaReveal();
                 onSummonComplete(response.remaining_aura);
                 if (response.outcome === 'duplicate') {
                     toast('Doublon converti en XP !', { icon: '⬆️' });
                 }
             } else {
+                playError();
                 toast.error(response.message || 'Erreur lors de l\'invocation');
             }
         } catch (error) {
+            playError();
             toast.error('Erreur technique');
         } finally {
             setIsSummoning(false);
@@ -101,8 +109,8 @@ const GachaSystem: React.FC<GachaProps> = ({ userAura, onSummonComplete }) => {
                             onClick={handleSummon}
                             disabled={userAura < SUMMON_COST}
                             className={`group relative px-8 py-4 rounded-xl font-bold font-mono tracking-widest text-lg transition-all ${userAura >= SUMMON_COST
-                                ? 'bg-gradient-to-r from-neonPink to-neonPurple text-white hover:scale-105 shadow-[0_0_30px_rgba(247,37,133,0.4)]'
-                                : 'bg-white/10 text-gray-500 cursor-not-allowed'
+                                    ? 'bg-gradient-to-r from-neonPink to-neonPurple text-white hover:scale-105 shadow-[0_0_30px_rgba(247,37,133,0.4)]'
+                                    : 'bg-white/10 text-gray-500 cursor-not-allowed'
                                 }`}
                         >
                             <span className="flex items-center gap-3">
