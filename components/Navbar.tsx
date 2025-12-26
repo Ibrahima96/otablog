@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { Menu, X, Zap, User, LogOut, ShoppingBag } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
+import { supabase } from '../services/supabaseClient';
 
 interface NavbarProps {
   onOpenAuth: () => void;
@@ -45,6 +46,25 @@ const Navbar: React.FC<NavbarProps> = ({ onOpenAuth, currentView = 'home', onNav
   const profileLink = user ? [{ name: 'Profil', href: '#profile', view: 'profile' as const }] : [];
   const allLinks = [...navLinks, ...profileLink];
 
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (user) {
+      // Fetch avatar from profiles
+      const fetchAvatar = async () => {
+        const { data } = await supabase
+          .from('profiles')
+          .select('avatar_url')
+          .eq('id', user.id)
+          .single();
+        if (data?.avatar_url) {
+          setAvatarUrl(data.avatar_url);
+        }
+      };
+      fetchAvatar();
+    }
+  }, [user]);
+
   return (
     <nav className={`fixed top-0 w-full z-[100] transition-all duration-300 ${scrolled ? 'glass-panel border-b border-white/5 py-4' : 'bg-transparent py-6'}`}>
       <div className="max-w-7xl mx-auto px-6 flex justify-between items-center">
@@ -65,6 +85,7 @@ const Navbar: React.FC<NavbarProps> = ({ onOpenAuth, currentView = 'home', onNav
         {/* Desktop Menu */}
         <div className="hidden md:flex items-center gap-8">
           {allLinks.map((link) => (
+            // ... link render ...
             <a
               key={link.name}
               href={link.view === 'home' ? link.href : '#'}
@@ -75,10 +96,8 @@ const Navbar: React.FC<NavbarProps> = ({ onOpenAuth, currentView = 'home', onNav
                 } else if (link.view === 'home' && currentView !== 'home') {
                   e.preventDefault();
                   onNavigate?.('home');
-                  // Small timeout to allow view switch before scrolling
                   setTimeout(() => {
-                    const element = document.querySelector(link.href);
-                    element?.scrollIntoView({ behavior: 'smooth' });
+                    document.querySelector(link.href)?.scrollIntoView({ behavior: 'smooth' });
                   }, 100);
                 }
               }}
@@ -101,9 +120,20 @@ const Navbar: React.FC<NavbarProps> = ({ onOpenAuth, currentView = 'home', onNav
 
           {user ? (
             <div className="flex items-center gap-4">
-              <div className="flex items-center gap-2 text-sm text-cyanLight font-mono border border-cyanLight/20 px-3 py-1 rounded-full bg-cyanLight/5">
-                <User size={14} />
-                <span className="max-w-[100px] truncate">{user.email?.split('@')[0]}</span>
+              <div
+                className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity"
+                onClick={() => onNavigate?.('profile')}
+              >
+                {avatarUrl ? (
+                  <img src={avatarUrl} alt="Avatar" className="w-8 h-8 rounded-full border border-cyanLight/30 object-cover" />
+                ) : (
+                  <div className="w-8 h-8 rounded-full bg-cyanLight/10 border border-cyanLight/30 flex items-center justify-center text-cyanLight">
+                    <User size={14} />
+                  </div>
+                )}
+                <div className="hidden lg:block text-sm text-cyanLight font-mono">
+                  <span className="max-w-[100px] truncate block">{user.email?.split('@')[0]}</span>
+                </div>
               </div>
               <button
                 onClick={signOut}

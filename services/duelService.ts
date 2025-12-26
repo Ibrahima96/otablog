@@ -217,12 +217,24 @@ class DuelService {
      */
     async updateProfile(userId: string, updates: { avatar_url?: string; title?: string; bio?: string }) {
         try {
+            // 1. Update Profiles Table
             const { error } = await supabase
                 .from('profiles')
                 .update({ ...updates, updated_at: new Date() })
                 .eq('id', userId);
 
             if (error) throw error;
+
+            // 2. Sync Avatar to Quiz Scores (Leaderboard) if changed
+            if (updates.avatar_url) {
+                const { error: scoreError } = await supabase
+                    .from('quiz_scores')
+                    .update({ avatar_url: updates.avatar_url })
+                    .eq('user_id', userId);
+
+                if (scoreError) console.warn('Failed to sync avatar to quiz_scores:', scoreError);
+            }
+
             return true;
         } catch (error) {
             console.error('Error updating profile:', error);
