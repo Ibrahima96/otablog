@@ -12,9 +12,10 @@ interface CommunityPostProps {
     post: CommunityPostType;
     onDelete?: (postId: string) => void;
     onCommentClick?: (post: CommunityPostType) => void;
+    onLikeChange?: (postId: string, newCount: number, isLiked: boolean) => void;
 }
 
-const CommunityPost: React.FC<CommunityPostProps> = ({ post, onDelete, onCommentClick }) => {
+const CommunityPost: React.FC<CommunityPostProps> = ({ post, onDelete, onCommentClick, onLikeChange }) => {
     const { user } = useAuth();
     const isMarketplace = post.type === 'marketplace';
     const [liked, setLiked] = useState(false);
@@ -29,13 +30,22 @@ const CommunityPost: React.FC<CommunityPostProps> = ({ post, onDelete, onComment
         }
     }, [post.id, user]);
 
+    // Update local state if prop changes (e.g. from parent update)
+    useEffect(() => {
+        setLikeCount(post.likes);
+    }, [post.likes]);
+
     const handleLike = async () => {
         if (!user) return;
 
         try {
             const isLiked = await toggleLike(post.id, user.id);
             setLiked(isLiked);
-            setLikeCount(prev => isLiked ? prev + 1 : prev - 1);
+            const newCount = isLiked ? likeCount + 1 : likeCount - 1;
+            setLikeCount(newCount);
+            if (onLikeChange) {
+                onLikeChange(post.id, newCount, isLiked);
+            }
         } catch (error) {
             console.error('Error toggling like:', error);
         }

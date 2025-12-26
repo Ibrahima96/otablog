@@ -93,6 +93,31 @@ const Community: React.FC<CommunityProps> = ({ onOpenAuth }) => {
         setSelectedPost(post);
     };
 
+    const handleCommentChange = (postId: string, newCount: number) => {
+        setPosts(currentPosts =>
+            currentPosts.map(p =>
+                p.id === postId ? { ...p, comments: newCount } : p
+            )
+        );
+
+        // Also update selectedPost if it's the one being viewed
+        if (selectedPost && selectedPost.id === postId) {
+            setSelectedPost(prev => prev ? { ...prev, comments: newCount } : null);
+        }
+    };
+
+    const handleLikeChange = (postId: string, newCount: number) => {
+        setPosts(currentPosts =>
+            currentPosts.map(p =>
+                p.id === postId ? { ...p, likes: newCount } : p
+            )
+        );
+
+        if (selectedPost && selectedPost.id === postId) {
+            setSelectedPost(prev => prev ? { ...prev, likes: newCount } : null);
+        }
+    };
+
     return (
         <section id="community" className="py-24 bg-obsidian relative overflow-hidden">
             {/* Background Decor */}
@@ -210,6 +235,7 @@ const Community: React.FC<CommunityProps> = ({ onOpenAuth }) => {
                                         post={post}
                                         onDelete={handlePostDeleted}
                                         onCommentClick={handleCommentClick}
+                                        onLikeChange={handleLikeChange}
                                     />
                                 ))}
                             </div>
@@ -251,6 +277,7 @@ const Community: React.FC<CommunityProps> = ({ onOpenAuth }) => {
                 onClose={() => setSelectedPost(null)}
                 post={selectedPost}
                 onOpenAuth={onOpenAuth || (() => { })}
+                onCommentChange={handleCommentChange}
             />
         </section>
     );

@@ -9,9 +9,10 @@ interface PostModalProps {
     onClose: () => void;
     post: CommunityPost | null;
     onOpenAuth: () => void;
+    onCommentChange?: (postId: string, newCount: number) => void;
 }
 
-const PostModal: React.FC<PostModalProps> = ({ isOpen, onClose, post, onOpenAuth }) => {
+const PostModal: React.FC<PostModalProps> = ({ isOpen, onClose, post, onOpenAuth, onCommentChange }) => {
     const { user } = useAuth();
     const [postComments, setPostComments] = useState<any[]>([]);
     const [newComment, setNewComment] = useState('');
@@ -45,6 +46,15 @@ const PostModal: React.FC<PostModalProps> = ({ isOpen, onClose, post, onOpenAuth
         try {
             await communityService.addComment(post.id, user.id, newComment);
             await loadComments();
+            // Notify parent
+            if (onCommentChange) {
+                const updatedCount = postComments.length + 1; // optimistic or fetch? postComments is updated by loadComments? No, loadComments is async.
+                // Wait for loadComments to finish?
+                // Actually loadComments sets state.
+                // Let's just pass the incremented count or fetch fresh.
+                // Safer to just increment current length + 1
+                onCommentChange(post.id, postComments.length + 1);
+            }
             setNewComment('');
         } catch (error: any) {
             console.error('Error adding comment:', error);
@@ -58,6 +68,9 @@ const PostModal: React.FC<PostModalProps> = ({ isOpen, onClose, post, onOpenAuth
         try {
             await communityService.deleteComment(commentId, user.id);
             await loadComments();
+            if (onCommentChange) {
+                onCommentChange(post.id, Math.max(0, postComments.length - 1));
+            }
         } catch (error: any) {
             alert(error.message);
         }
