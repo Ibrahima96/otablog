@@ -5,6 +5,7 @@ import { CommunityPost as CommunityPostType } from '../types';
 import { toggleLike, hasUserLikedPost, deletePost } from '../services/communityService';
 import { useAuth } from '../context/AuthContext';
 import ProductPreviewModal from './ProductPreviewModal';
+import FollowButton from './FollowButton';
 import { toast } from 'sonner';
 
 interface CommunityPostProps {
@@ -164,6 +165,10 @@ const CommunityPost: React.FC<CommunityPostProps> = ({ post, onDelete, onComment
                                 {new Date(post.createdAt).toLocaleDateString('fr-FR')}
                             </p>
                         </div>
+                        <FollowButton
+                            targetUserId={post.author.id}
+                            targetUsername={post.author.username}
+                        />
                     </div>
 
                     {/* Marketplace Item Details */}
