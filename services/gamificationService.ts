@@ -94,5 +94,18 @@ export const gamificationService = {
             return false;
         }
         return !!data;
+    },
+
+    async summonItem(userId: string, cost: number = 100): Promise<any> {
+        const { data, error } = await supabase.rpc('perform_summon', {
+            p_user_id: userId,
+            p_cost: cost
+        });
+
+        if (error) {
+            console.error('Error invoking summons:', error);
+            throw error;
+        }
+        return data; // Returns { success, outcome, badge, remaining_aura, message }
     }
 };

@@ -5,6 +5,8 @@ import { CommunityPost } from '../types';
 import { getPosts } from '../services/communityService';
 import CommunityPostComponent from './CommunityPost';
 import { useAuth } from '../context/AuthContext';
+import { gamificationService } from '../services/gamificationService';
+import GachaSystem from './GachaSystem';
 
 const CATEGORIES = [
     { value: 'all', label: 'Tout' },
@@ -26,7 +28,7 @@ interface ShopPageProps {
 }
 
 const ShopPage: React.FC<ShopPageProps> = ({ onOpenAuth }) => {
-    const { session } = useAuth();
+    const { session, user } = useAuth();
     const [products, setProducts] = useState<CommunityPost[]>([]);
     const [filteredProducts, setFilteredProducts] = useState<CommunityPost[]>([]);
     const [loading, setLoading] = useState(true);
@@ -34,14 +36,29 @@ const ShopPage: React.FC<ShopPageProps> = ({ onOpenAuth }) => {
     const [selectedCategory, setSelectedCategory] = useState('all');
     const [sortBy, setSortBy] = useState('recent');
     const [showFilters, setShowFilters] = useState(false);
+    const [userAura, setUserAura] = useState(0);
 
     useEffect(() => {
         loadProducts();
     }, []);
 
     useEffect(() => {
+        if (user) {
+            loadUserProfile();
+        }
+    }, [user]);
+
+    useEffect(() => {
         filterAndSortProducts();
     }, [products, searchQuery, selectedCategory, sortBy]);
+
+    const loadUserProfile = async () => {
+        if (!user) return;
+        const profile = await gamificationService.getProfile(user.id);
+        if (profile) {
+            setUserAura(profile.aura);
+        }
+    };
 
     const loadProducts = async () => {
         try {
@@ -115,16 +132,33 @@ const ShopPage: React.FC<ShopPageProps> = ({ onOpenAuth }) => {
                     >
                         <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-neonPink/10 border border-neonPink/30 text-neonPink mb-6">
                             <ShoppingBag size={20} />
-                            <span className="font-mono uppercase tracking-widest text-sm">Marketplace</span>
+                            <span className="font-mono uppercase tracking-widest text-sm">Gacha & Marketplace</span>
                         </div>
 
                         <h1 className="text-5xl md:text-7xl font-display font-black text-white mb-4 leading-tight">
                             OTAKU <span className="text-transparent bg-clip-text bg-gradient-to-r from-neonPink to-neonPurple">SHOP</span>
                         </h1>
 
-                        <p className="text-xl text-gray-400 max-w-2xl mx-auto mb-8">
-                            Découvrez des articles uniques vendus par la communauté
+                        <p className="text-xl text-gray-400 max-w-2xl mx-auto mb-12">
+                            Invoquez des loots légendaires ou dénichez des perles rares.
                         </p>
+
+                        {/* Gacha System Integration */}
+                        {user ? (
+                            <div className="mb-20">
+                                <GachaSystem
+                                    userAura={userAura}
+                                    onSummonComplete={(newAura) => setUserAura(newAura)}
+                                />
+                            </div>
+                        ) : (
+                            <div className="mb-20 p-8 border border-white/10 rounded-2xl bg-midnight/50">
+                                <p className="text-white mb-4">Connectez-vous pour invoquer des items !</p>
+                                <button onClick={onOpenAuth} className="px-6 py-2 bg-neonPink text-white font-bold rounded-lg hover:bg-neonPink/80 transition-colors">
+                                    Se Connecter
+                                </button>
+                            </div>
+                        )}
 
                         {/* Stats */}
                         <div className="flex items-center justify-center gap-8 flex-wrap">
@@ -188,8 +222,8 @@ const ShopPage: React.FC<ShopPageProps> = ({ onOpenAuth }) => {
                                             key={cat.value}
                                             onClick={() => setSelectedCategory(cat.value)}
                                             className={`px-4 py-2 rounded-lg font-mono text-sm transition-all ${selectedCategory === cat.value
-                                                    ? 'bg-neonPink text-white'
-                                                    : 'bg-midnight/50 border border-white/10 text-gray-400 hover:border-neonPink/50 hover:text-white'
+                                                ? 'bg-neonPink text-white'
+                                                : 'bg-midnight/50 border border-white/10 text-gray-400 hover:border-neonPink/50 hover:text-white'
                                                 }`}
                                         >
                                             {cat.label}
