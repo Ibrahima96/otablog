@@ -12,9 +12,10 @@ interface TerminalChatProps {
   onOpenAuth?: () => void;
   onLaunchDuel?: (questions: any) => void;
   lastGameResult?: { score: number, topic: string } | null;
+  onNavigate?: (view: any) => void;
 }
 
-const TerminalChat: React.FC<TerminalChatProps> = ({ onOpenAuth, onLaunchDuel, lastGameResult }) => {
+const TerminalChat: React.FC<TerminalChatProps> = ({ onOpenAuth, onLaunchDuel, lastGameResult, onNavigate }) => {
   const { user } = useAuth();
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -23,7 +24,8 @@ const TerminalChat: React.FC<TerminalChatProps> = ({ onOpenAuth, onLaunchDuel, l
   const { messages, sendMessage, isLoading, isMatrixMode, isHypnosisActive, triggerHypnosis } = useChatTerminal({
     user,
     initialMessage: "Connexion sécurisée établie. OtaBot v3.0 (Cyber-Enhanced) en ligne. \nTapez '/help' pour voir les commandes.",
-    lastGameResult
+    lastGameResult,
+    onNavigate
   });
 
   useEffect(() => {

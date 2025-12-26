@@ -8,6 +8,7 @@ interface UseChatTerminalProps {
     initialMessage?: string;
     user: any;
     lastGameResult?: { score: number, topic: string } | null;
+    onNavigate?: (view: any) => void;
 }
 
 // ... (keep helper functions: generateCode, createChallengeInDB, getChallengeFromDB, updateChallengeScore as they are)
@@ -79,7 +80,7 @@ const updateChallengeScore = async (code: string, score: number) => {
     }
 };
 
-export const useChatTerminal = ({ initialMessage, user, lastGameResult }: UseChatTerminalProps) => {
+export const useChatTerminal = ({ initialMessage, user, lastGameResult, onNavigate }: UseChatTerminalProps) => {
     const [messages, setMessages] = useState<ChatMessage[]>([
         { id: '1', role: 'model', text: initialMessage || 'Système initialisé. OtaBot v2.5 en ligne.' }
     ]);
@@ -653,6 +654,18 @@ export const useChatTerminal = ({ initialMessage, user, lastGameResult }: UseCha
                     return true;
                 }
 
+                if (onNavigate) {
+                    setMessages(prev => [...prev, {
+                        id: Date.now().toString(),
+                        role: 'model',
+                        text: `🔄 Redirection vers le Dashboard Profil...`,
+                        isTyping: true
+                    }]);
+                    setTimeout(() => onNavigate('profile'), 1000);
+                    return true;
+                }
+
+                // Fallback to inline card if no navigation (old behavior)
                 setMessages(prev => [...prev, {
                     id: Date.now().toString(),
                     role: 'model',

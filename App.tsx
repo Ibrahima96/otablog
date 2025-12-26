@@ -33,6 +33,7 @@ const Community = React.lazy(() => import('./components/Community'));
 const AnimeQuizPage = React.lazy(() => import('./components/AnimeQuizPage'));
 const NeuralGuide = React.lazy(() => import('./components/NeuralGuide'));
 const ShopPage = React.lazy(() => import('./components/ShopPage'));
+const ProfileDashboard = React.lazy(() => import('./components/ProfileDashboard'));
 
 const LoadingScreen = () => (
   <div className="flex items-center justify-center min-h-[50vh]">
@@ -313,7 +314,7 @@ const Footer = () => (
 const AppContent: React.FC = () => {
   const [isAuthOpen, setIsAuthOpen] = useState(false);
   const [isGuideOpen, setIsGuideOpen] = useState(false);
-  const [currentView, setCurrentView] = useState<'home' | 'quiz' | 'shop'>('home');
+  const [currentView, setCurrentView] = useState<'home' | 'quiz' | 'shop' | 'profile'>('home');
   const [isMobile, setIsMobile] = useState(false);
   const { session, user } = useAuth(); // Destructure user for username
   const [customQuizData, setCustomQuizData] = useState<any>(null);
@@ -415,6 +416,7 @@ const AppContent: React.FC = () => {
                   onOpenAuth={() => setIsAuthOpen(true)}
                   onLaunchDuel={launchDuel}
                   lastGameResult={lastGameResult}
+                  onNavigate={setCurrentView}
                 />
                 {!session && <RecentPostsPreview posts={recentPosts} onOpenAuth={() => setIsAuthOpen(true)} />}
               </motion.div>
@@ -430,6 +432,19 @@ const AppContent: React.FC = () => {
                 transition={{ duration: 0.3 }}
               >
                 <ShopPage onOpenAuth={() => setIsAuthOpen(true)} />
+              </motion.div>
+            )}
+
+            {/* PROFILE VIEW */}
+            {currentView === 'profile' && (
+              <motion.div
+                key="profile"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                transition={{ duration: 0.3 }}
+              >
+                <ProfileDashboard onNavigate={setCurrentView} />
               </motion.div>
             )}
 

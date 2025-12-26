@@ -6,8 +6,8 @@ import { useAuth } from '../context/AuthContext';
 
 interface NavbarProps {
   onOpenAuth: () => void;
-  currentView?: 'home' | 'quiz' | 'shop';
-  onNavigate?: (view: 'home' | 'quiz' | 'shop') => void;
+  currentView?: 'home' | 'quiz' | 'shop' | 'profile';
+  onNavigate?: (view: 'home' | 'quiz' | 'shop' | 'profile') => void;
 }
 
 const Navbar: React.FC<NavbarProps> = ({ onOpenAuth, currentView = 'home', onNavigate }) => {
@@ -42,6 +42,9 @@ const Navbar: React.FC<NavbarProps> = ({ onOpenAuth, currentView = 'home', onNav
     { name: 'Terminal', href: '#chat', view: 'home' as const },
   ];
 
+  const profileLink = user ? [{ name: 'Profil', href: '#profile', view: 'profile' as const }] : [];
+  const allLinks = [...navLinks, ...profileLink];
+
   return (
     <nav className={`fixed top-0 w-full z-[100] transition-all duration-300 ${scrolled ? 'glass-panel border-b border-white/5 py-4' : 'bg-transparent py-6'}`}>
       <div className="max-w-7xl mx-auto px-6 flex justify-between items-center">
@@ -61,14 +64,14 @@ const Navbar: React.FC<NavbarProps> = ({ onOpenAuth, currentView = 'home', onNav
 
         {/* Desktop Menu */}
         <div className="hidden md:flex items-center gap-8">
-          {navLinks.map((link) => (
+          {allLinks.map((link) => (
             <a
               key={link.name}
               href={link.view === 'home' ? link.href : '#'}
               onClick={(e) => {
-                if (link.view === 'shop') {
+                if (link.view === 'shop' || link.view === 'profile') {
                   e.preventDefault();
-                  onNavigate?.('shop');
+                  onNavigate?.(link.view as any);
                 } else if (link.view === 'home' && currentView !== 'home') {
                   e.preventDefault();
                   onNavigate?.('home');

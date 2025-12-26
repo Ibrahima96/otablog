@@ -89,3 +89,29 @@ export interface QuizScore {
   avatarUrl?: string;
   rank?: number;
 }
+
+export interface Badge {
+  id: string;
+  slug: string;
+  name: string;
+  description: string;
+  icon: string;
+  rarity: 'common' | 'rare' | 'epic' | 'legendary';
+  xpReward: number;
+  auraReward: number;
+  obtainedAt?: Date; // For UserBadge view
+}
+
+export interface UserProfile {
+  id: string;
+  username: string;
+  avatarUrl?: string;
+  bio?: string;
+  level: number;
+  xp: number;
+  aura: number;
+  title: string;
+  duelWins: number;
+  duelTotal: number;
+  badges?: Badge[];
+}
