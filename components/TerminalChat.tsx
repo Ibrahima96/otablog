@@ -21,6 +21,68 @@ const TerminalChat: React.FC<TerminalChatProps> = ({ onOpenAuth, onLaunchDuel, l
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [input, setInput] = React.useState('');
 
+  // Mention Autocomplete State
+  const [mentionQuery, setMentionQuery] = React.useState<string | null>(null);
+  const [suggestions, setSuggestions] = React.useState<any[]>([]);
+  const [showSuggestions, setShowSuggestions] = React.useState(false);
+  const [activeSuggestionIndex, setActiveSuggestionIndex] = React.useState(0);
+  const suggestionRef = useRef<HTMLDivElement>(null);
+
+  // Search profiles when mentionQuery changes
+  useEffect(() => {
+    if (mentionQuery) {
+      const searchUsers = async () => {
+        const { data } = await supabase
+          .from('profiles')
+          .select('username, avatar_url')
+          .ilike('username', `%${mentionQuery}%`)
+          .limit(5);
+
+        if (data && data.length > 0) {
+          setSuggestions(data);
+          setShowSuggestions(true);
+          setActiveSuggestionIndex(0);
+        } else {
+          setShowSuggestions(false);
+        }
+      };
+      // Debounce slightly
+      const timer = setTimeout(searchUsers, 200);
+      return () => clearTimeout(timer);
+    } else {
+      setShowSuggestions(false);
+    }
+  }, [mentionQuery]);
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newVal = e.target.value;
+    setInput(newVal);
+
+    // Detect if we are typing a mention
+    const words = newVal.split(' ');
+    const lastWord = words[words.length - 1];
+
+    if (lastWord.startsWith('@') && lastWord.length > 1) {
+      setMentionQuery(lastWord.substring(1));
+    } else {
+      setMentionQuery(null);
+    }
+  };
+
+  const insertMention = (username: string) => {
+    const words = input.split(' ');
+    // Remove last word (incomplete mention)
+    words.pop();
+    // Add completed mention
+    words.push(`@${username} `); // Add space
+    setInput(words.join(' '));
+    setShowSuggestions(false);
+    setMentionQuery(null);
+    // Focus back input
+    const inputEl = document.querySelector('input') as HTMLInputElement;
+    if (inputEl) inputEl.focus();
+  };
+
   const { messages, sendMessage, isLoading, isMatrixMode, isHypnosisActive, triggerHypnosis } = useChatTerminal({
     user,
     initialMessage: "Connexion sécurisée établie. OtaBot v3.0 (Cyber-Enhanced) en ligne. \nTapez '/help' pour voir les commandes.",
@@ -99,6 +161,30 @@ const TerminalChat: React.FC<TerminalChatProps> = ({ onOpenAuth, onLaunchDuel, l
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (showSuggestions) {
+      if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        setActiveSuggestionIndex(prev => (prev > 0 ? prev - 1 : suggestions.length - 1));
+        return;
+      }
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        setActiveSuggestionIndex(prev => (prev < suggestions.length - 1 ? prev + 1 : 0));
+        return;
+      }
+      if (e.key === 'Enter' || e.key === 'Tab') {
+        e.preventDefault();
+        if (suggestions.length > 0) {
+          insertMention(suggestions[activeSuggestionIndex].username);
+        }
+        return;
+      }
+      if (e.key === 'Escape') {
+        setShowSuggestions(false);
+        return;
+      }
+    }
+
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSend();
@@ -250,6 +336,28 @@ const TerminalChat: React.FC<TerminalChatProps> = ({ onOpenAuth, onLaunchDuel, l
 
           {/* Input Area */}
           <div className={`p-4 md:p-6 bg-[#0a0a0a] border-t border-gray-800 flex items-center gap-4 relative z-30 ${!user ? 'opacity-30 blur-sm' : ''}`}>
+
+            {/* Suggestions Popup */}
+            {showSuggestions && (
+              <div className="absolute bottom-full left-14 mb-2 w-64 bg-obsidian border border-neonPink/30 rounded-lg overflow-hidden shadow-xl z-50">
+                <div className="p-2 bg-neonPink/20 text-xs text-neonPink font-bold border-b border-neonPink/20">
+                  SUGGESTIONS
+                </div>
+                {suggestions.map((s, i) => (
+                  <button
+                    key={s.username}
+                    onClick={() => insertMention(s.username)}
+                    className={`w-full text-left p-3 flex items-center gap-3 text-sm transition-colors ${i === activeSuggestionIndex ? 'bg-neonPink text-white' : 'text-gray-300 hover:bg-white/5'}`}
+                  >
+                    <div className="w-6 h-6 rounded-full bg-gray-700 overflow-hidden flex-shrink-0">
+                      {s.avatar_url ? <img src={s.avatar_url} className="w-full h-full object-cover" /> : <div className="w-full h-full bg-gray-600" />}
+                    </div>
+                    <span>{s.username}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+
             {isLoading && (
               <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-neonPink to-transparent animate-pulse"></div>
             )}
@@ -257,7 +365,7 @@ const TerminalChat: React.FC<TerminalChatProps> = ({ onOpenAuth, onLaunchDuel, l
             <input
               type="text"
               value={input}
-              onChange={(e) => setInput(e.target.value)}
+              onChange={handleInputChange}
               onKeyDown={handleKeyDown}
               onFocus={handleInputFocus}
               disabled={isLoading || !user}

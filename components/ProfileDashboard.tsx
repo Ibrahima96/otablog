@@ -158,6 +158,15 @@ const ProfileDashboard: React.FC<ProfileDashboardProps> = ({ onNavigate }) => {
                                     <span>{profile.title}</span>
                                 </div>
 
+                                {profile.whatsapp_number && (
+                                    <div className="flex items-center gap-2 mb-6">
+                                        <div className="bg-[#25D366]/10 text-[#25D366] px-3 py-1 rounded-full border border-[#25D366]/20 font-mono text-xs flex items-center gap-2">
+                                            <span className="w-2 h-2 rounded-full bg-[#25D366] animate-pulse"></span>
+                                            WA: +{profile.whatsapp_number}
+                                        </div>
+                                    </div>
+                                )}
+
                                 {/* XP Bar */}
                                 <div className="w-full bg-white/5 rounded-full h-4 overflow-hidden relative border border-white/10">
                                     <div

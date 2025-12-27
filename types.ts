@@ -113,5 +113,6 @@ export interface UserProfile {
   title: string;
   duelWins: number;
   duelTotal: number;
+  whatsapp_number?: string;
   badges?: Badge[];
 }

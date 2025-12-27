@@ -55,6 +55,7 @@ export const gamificationService = {
                 title: profile.title,
                 duelWins: profile.duel_wins,
                 duelTotal: profile.duel_total,
+                whatsapp_number: profile.whatsapp_number,
                 badges
             };
         } catch (err) {

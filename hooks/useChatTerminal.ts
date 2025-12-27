@@ -13,6 +13,9 @@ interface UseChatTerminalProps {
 
 // ... (keep helper functions: generateCode, createChallengeInDB, getChallengeFromDB, updateChallengeScore as they are)
 
+// Helper for unique IDs
+const generateId = () => Date.now().toString(36) + Math.random().toString(36).substr(2, 9);
+
 // Helper to generate a unique challenge code
 const generateCode = (topic: string) => {
     const prefix = topic.substring(0, 3).toUpperCase().replace(/[^A-Z]/g, 'X');
@@ -204,19 +207,123 @@ export const useChatTerminal = ({ initialMessage, user, lastGameResult, onNaviga
     }, [lastGameResult, user, activeChallengeCode]);
 
     const clearHistory = useCallback(() => {
-        setMessages([{ id: Date.now().toString(), role: 'model', text: 'Terminal nettoyé. Prêt.' }]);
+        setMessages([{ id: generateId(), role: 'model', text: 'Terminal nettoyé. Prêt.' }]);
     }, []);
 
     const processCommand = useCallback(async (cmd: string): Promise<boolean> => {
         try {
             const command = cmd.toLowerCase().trim();
 
+            // PRIORITY: Mention Detection (@username)
+            if (command.startsWith('@')) {
+                const mentionPart = command.split(' ')[0]; // Get @username
+                const username = mentionPart.substring(1); // Remove @
+                const messageContent = command.replace(mentionPart, '').trim();
+
+                if (!messageContent) {
+                    setMessages(prev => [...prev, {
+                        id: generateId(),
+                        role: 'model',
+                        text: '❌ Ajoutez un message après la mention.\n\nExemple: @bicom Salut, ça va ?'
+                    }]);
+                    return true;
+                }
+
+                setMessages(prev => [...prev, {
+                    id: 'mention-search-' + generateId(),
+                    role: 'model',
+                    text: `🔍 Recherche des coordonnées de "${username}"...`,
+                    isTyping: true
+                }]);
+
+                try {
+                    // Find user by username in profiles
+                    const { data: targetProfile, error } = await supabase
+                        .from('profiles')
+                        .select('whatsapp_number, username')
+                        .ilike('username', username) // Case insensitive
+                        .single();
+
+                    if (error || !targetProfile) {
+                        // Fallback: Try to find similar users
+                        const { data: suggestions } = await supabase
+                            .from('profiles')
+                            .select('username')
+                            .ilike('username', `%${username}%`)
+                            .limit(1);
+
+                        setMessages(prev => {
+                            const filtered = prev.filter(m => !m.isTyping);
+                            let errorMsg = `❌ Utilisateur @${username} introuvable.`;
+
+                            if (suggestions && suggestions.length > 0) {
+                                errorMsg += `\n\n💡 Vouliez-vous dire @${suggestions[0].username} ?`;
+                            } else {
+                                errorMsg += `\n\n💡 Astuce : Utilisez l'autocomplétion en tapant progressivement.`;
+                            }
+
+                            return [...filtered, {
+                                id: generateId(),
+                                role: 'model',
+                                text: errorMsg
+                            }];
+                        });
+                        return true;
+                    }
+
+                    if (!targetProfile.whatsapp_number) {
+                        setMessages(prev => {
+                            const filtered = prev.filter(m => !m.isTyping);
+                            return [...filtered, {
+                                id: generateId(),
+                                role: 'model',
+                                text: `❌ @${targetProfile.username} n'a pas lié son numéro WhatsApp.`
+                            }];
+                        });
+                        return true;
+                    }
+
+                    const waUrl = `https://wa.me/${targetProfile.whatsapp_number}?text=${encodeURIComponent(`[Via OtaBlog] De ${user?.user_metadata?.username || 'Membre'}: ${messageContent}`)}`;
+
+                    setMessages(prev => {
+                        const filtered = prev.filter(m => !m.isTyping);
+                        return [...filtered, {
+                            id: 'wa-link-' + generateId(),
+                            role: 'model',
+                            text: `📱 CONTACTOR LINK ÉTABLI\n\nDestinataire: ${targetProfile.username}\nMessage: "${messageContent}"\n\n✅ Cliquez pour ouvrir WhatsApp :`,
+                            data: { type: 'duel_invite', payload: null }, // Using duel_invite structure hack or regular text
+                        }, {
+                            id: 'wa-btn-' + generateId(),
+                            role: 'model',
+                            text: `🔗 [OUVRIR WHATSAPP AVEC ${targetProfile.username}](${waUrl})`
+                        }];
+                    });
+
+                    // Auto-open attempt
+                    if (typeof window !== 'undefined') {
+                        window.open(waUrl, '_blank');
+                    }
+
+                } catch (error) {
+                    console.error('Mention error:', error);
+                    setMessages(prev => {
+                        const filtered = prev.filter(m => !m.isTyping);
+                        return [...filtered, {
+                            id: generateId(),
+                            role: 'model',
+                            text: `❌ Erreur système lors de la résolution du contact.`
+                        }];
+                    });
+                }
+                return true;
+            }
+
             if (command.startsWith('/join')) {
                 // Use original cmd to preserve case of the challenge code
                 const code = cmd.replace(/^\/join\s*/i, '').trim();
                 if (!code || code.length < 5) {
                     setMessages(prev => [...prev, {
-                        id: Date.now().toString(),
+                        id: generateId(),
                         role: 'model',
                         text: `❌ Erreur: Format de code invalide.\n\nUtilisation: /join #CODE-1234-5678`
                     }]);
@@ -295,7 +402,7 @@ export const useChatTerminal = ({ initialMessage, user, lastGameResult, onNaviga
                 const topic = command.replace('/duel', '').trim();
                 if (!topic) {
                     setMessages(prev => [...prev, {
-                        id: Date.now().toString(),
+                        id: generateId(),
                         role: 'model',
                         text: '❌ Veuillez spécifier un sujet.\n\nExemple: /duel Dragon Ball'
                     }]);
@@ -304,7 +411,7 @@ export const useChatTerminal = ({ initialMessage, user, lastGameResult, onNaviga
 
                 if (!user) {
                     setMessages(prev => [...prev, {
-                        id: Date.now().toString(),
+                        id: generateId(),
                         role: 'model',
                         text: '❌ Vous devez être connecté pour créer un défi.'
                     }]);
@@ -312,7 +419,7 @@ export const useChatTerminal = ({ initialMessage, user, lastGameResult, onNaviga
                 }
 
                 setMessages(prev => [...prev, {
-                    id: Date.now().toString(),
+                    id: generateId(),
                     role: 'model',
                     text: `🤖 Analyse du sujet "${topic}"...\n⚙️ Génération du protocole de duel...`,
                     isTyping: true
@@ -332,7 +439,7 @@ export const useChatTerminal = ({ initialMessage, user, lastGameResult, onNaviga
                     setMessages(prev => {
                         const filtered = prev.filter(m => !m.isTyping);
                         return [...filtered, {
-                            id: Date.now().toString(),
+                            id: generateId(),
                             role: 'model',
                             text: '❌ Erreur lors de la création du défi. Réessayez.'
                         }];
@@ -345,7 +452,7 @@ export const useChatTerminal = ({ initialMessage, user, lastGameResult, onNaviga
                 setMessages(prev => {
                     const filtered = prev.filter(m => !m.isTyping);
                     return [...filtered, {
-                        id: Date.now().toString(),
+                        id: generateId(),
                         role: 'model',
                         text: `✅ Duel généré avec succès !\n\n📚 Sujet: ${topic}\n📋 CODE DÉFI: ${code}\n\n💡 Jouez d'abord pour définir le score à battre !`,
                         data: { type: 'duel_invite', payload: finalQuestions, code }
@@ -362,7 +469,7 @@ export const useChatTerminal = ({ initialMessage, user, lastGameResult, onNaviga
             // Fun commands
             if (command === '/fortune') {
                 setMessages(prev => [...prev, {
-                    id: Date.now().toString(),
+                    id: generateId(),
                     role: 'model',
                     text: `🔮 FORTUNE OTAKU DU JOUR\n\nGénération d'une citation inspirante...`,
                     isTyping: true
@@ -381,7 +488,7 @@ export const useChatTerminal = ({ initialMessage, user, lastGameResult, onNaviga
                     setMessages(prev => {
                         const filtered = prev.filter(m => !m.isTyping);
                         return [...filtered, {
-                            id: Date.now().toString(),
+                            id: generateId(),
                             role: 'model',
                             text: `🔮 FORTUNE OTAKU DU JOUR\n\n${fullQuote}\n\n✨ Sagesse d'anime générée par IA`
                         }];
@@ -400,7 +507,7 @@ export const useChatTerminal = ({ initialMessage, user, lastGameResult, onNaviga
                     setMessages(prev => {
                         const filtered = prev.filter(m => !m.isTyping);
                         return [...filtered, {
-                            id: Date.now().toString(),
+                            id: generateId(),
                             role: 'model',
                             text: `🔮 FORTUNE OTAKU DU JOUR\n\n"${randomFortune}"\n\n✨ Sagesse d'anime`
                         }];
@@ -413,7 +520,7 @@ export const useChatTerminal = ({ initialMessage, user, lastGameResult, onNaviga
                 const question = command.replace('/8ball', '').trim();
                 if (!question) {
                     setMessages(prev => [...prev, {
-                        id: Date.now().toString(),
+                        id: generateId(),
                         role: 'model',
                         text: '❌ Posez une question !\n\nExemple: /8ball Est-ce que je vais réussir ?'
                     }]);
@@ -434,7 +541,7 @@ export const useChatTerminal = ({ initialMessage, user, lastGameResult, onNaviga
                 ];
                 const randomAnswer = answers[Math.floor(Math.random() * answers.length)];
                 setMessages(prev => [...prev, {
-                    id: Date.now().toString(),
+                    id: generateId(),
                     role: 'model',
                     text: `🎱 BOULE MAGIQUE 8\n\n❓ "${question}"\n\n💬 ${randomAnswer}`
                 }]);
@@ -445,7 +552,7 @@ export const useChatTerminal = ({ initialMessage, user, lastGameResult, onNaviga
                 const result = Math.random() > 0.5;
                 const coin = result ? '🪙 PILE' : '🪙 FACE';
                 setMessages(prev => [...prev, {
-                    id: Date.now().toString(),
+                    id: generateId(),
                     role: 'model',
                     text: `🎲 PILE OU FACE\n\n${coin}\n\n${result ? '✨ Vous avez gagné !' : '💫 Réessayez !'}`
                 }]);
@@ -456,7 +563,7 @@ export const useChatTerminal = ({ initialMessage, user, lastGameResult, onNaviga
                 const diceStr = command.replace('/roll', '').trim();
                 if (!diceStr) {
                     setMessages(prev => [...prev, {
-                        id: Date.now().toString(),
+                        id: generateId(),
                         role: 'model',
                         text: '❌ Format invalide !\n\nExemples:\n> /roll 2d6 (2 dés à 6 faces)\n> /roll 1d20 (1 dé à 20 faces)\n> /roll 3d10 (3 dés à 10 faces)'
                     }]);
@@ -466,7 +573,7 @@ export const useChatTerminal = ({ initialMessage, user, lastGameResult, onNaviga
                 const match = diceStr.match(/^(\d+)d(\d+)$/i);
                 if (!match) {
                     setMessages(prev => [...prev, {
-                        id: Date.now().toString(),
+                        id: generateId(),
                         role: 'model',
                         text: '❌ Format invalide ! Utilisez: XdY\n\nExemple: /roll 2d6'
                     }]);
@@ -478,7 +585,7 @@ export const useChatTerminal = ({ initialMessage, user, lastGameResult, onNaviga
 
                 if (numDice > 20 || numDice < 1) {
                     setMessages(prev => [...prev, {
-                        id: Date.now().toString(),
+                        id: generateId(),
                         role: 'model',
                         text: '❌ Nombre de dés invalide (1-20)'
                     }]);
@@ -487,7 +594,7 @@ export const useChatTerminal = ({ initialMessage, user, lastGameResult, onNaviga
 
                 if (numSides > 100 || numSides < 2) {
                     setMessages(prev => [...prev, {
-                        id: Date.now().toString(),
+                        id: generateId(),
                         role: 'model',
                         text: '❌ Nombre de faces invalide (2-100)'
                     }]);
@@ -504,7 +611,7 @@ export const useChatTerminal = ({ initialMessage, user, lastGameResult, onNaviga
 
                 const rollsText = rolls.map((r, i) => `Dé ${i + 1}: ${r}`).join('\n');
                 setMessages(prev => [...prev, {
-                    id: Date.now().toString(),
+                    id: generateId(),
                     role: 'model',
                     text: `🎲 LANCER DE DÉS (${numDice}d${numSides})\n\n${rollsText}\n\n🎯 Total: ${total}`
                 }]);
@@ -513,7 +620,7 @@ export const useChatTerminal = ({ initialMessage, user, lastGameResult, onNaviga
 
             if (command.startsWith('/leaderboard') || command === '/top') {
                 setMessages(prev => [...prev, {
-                    id: Date.now().toString(),
+                    id: generateId(),
                     role: 'model',
                     text: `🏆 LEADERBOARD - TOP 10\n\nChargement des meilleurs scores...`,
                     isTyping: true
@@ -541,7 +648,7 @@ export const useChatTerminal = ({ initialMessage, user, lastGameResult, onNaviga
                     setMessages(prev => {
                         const filtered = prev.filter(m => !m.isTyping);
                         return [...filtered, {
-                            id: Date.now().toString(),
+                            id: generateId(),
                             role: 'model',
                             text: leaderboardText
                         }];
@@ -551,7 +658,7 @@ export const useChatTerminal = ({ initialMessage, user, lastGameResult, onNaviga
                     setMessages(prev => {
                         const filtered = prev.filter(m => !m.isTyping);
                         return [...filtered, {
-                            id: Date.now().toString(),
+                            id: 'err-' + generateId(),
                             role: 'model',
                             text: '❌ Erreur lors du chargement du leaderboard.'
                         }];
@@ -563,7 +670,7 @@ export const useChatTerminal = ({ initialMessage, user, lastGameResult, onNaviga
             if (command === '/stats') {
                 if (!user) {
                     setMessages(prev => [...prev, {
-                        id: Date.now().toString(),
+                        id: generateId(),
                         role: 'model',
                         text: '❌ Vous devez être connecté pour voir vos stats.'
                     }]);
@@ -571,7 +678,7 @@ export const useChatTerminal = ({ initialMessage, user, lastGameResult, onNaviga
                 }
 
                 setMessages(prev => [...prev, {
-                    id: Date.now().toString(),
+                    id: generateId(),
                     role: 'model',
                     text: `📊 VOS STATISTIQUES\n\nChargement...`,
                     isTyping: true
@@ -598,7 +705,7 @@ export const useChatTerminal = ({ initialMessage, user, lastGameResult, onNaviga
                     setMessages(prev => {
                         const filtered = prev.filter(m => !m.isTyping);
                         return [...filtered, {
-                            id: Date.now().toString(),
+                            id: generateId(),
                             role: 'model',
                             text: statsText
                         }];
@@ -608,7 +715,7 @@ export const useChatTerminal = ({ initialMessage, user, lastGameResult, onNaviga
                     setMessages(prev => {
                         const filtered = prev.filter(m => !m.isTyping);
                         return [...filtered, {
-                            id: Date.now().toString(),
+                            id: 'err-' + generateId(),
                             role: 'model',
                             text: '❌ Erreur lors du chargement des stats.'
                         }];
@@ -621,7 +728,7 @@ export const useChatTerminal = ({ initialMessage, user, lastGameResult, onNaviga
                 const code = command.replace('/share', '').trim();
                 if (!code) {
                     setMessages(prev => [...prev, {
-                        id: Date.now().toString(),
+                        id: generateId(),
                         role: 'model',
                         text: '❌ Spécifiez un code de défi !\n\nExemple: /share #NAR-1234-5678'
                     }]);
@@ -632,7 +739,7 @@ export const useChatTerminal = ({ initialMessage, user, lastGameResult, onNaviga
                 const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(message)}`;
 
                 setMessages(prev => [...prev, {
-                    id: 'share-' + Date.now(),
+                    id: 'share-' + generateId(),
                     role: 'model',
                     text: `📤 PARTAGE WHATSAPP\n\nCode: ${code}\n\n✅ Lien généré !\n\nCliquez ici pour partager:\n${whatsappUrl}\n\n💡 Le lien s'ouvrira dans WhatsApp`
                 }]);
@@ -649,26 +756,29 @@ export const useChatTerminal = ({ initialMessage, user, lastGameResult, onNaviga
                 const number = command.replace('/setwa', '').trim();
                 if (!number) {
                     setMessages(prev => [...prev, {
-                        id: Date.now().toString(),
+                        id: generateId(),
                         role: 'model',
                         text: '❌ Spécifiez votre numéro (format international sans +) !\n\nExemple: /setwa 33612345678'
                     }]);
                     return true;
                 }
 
-                // Basic validation (digits only, length check)
-                if (!/^\d{8,15}$/.test(number)) {
+                // Basic validation (allow +, spaces, digits)
+                // We strip non-digits for storage/usage
+                const cleanNumber = number.replace(/\D/g, '');
+
+                if (cleanNumber.length < 8 || cleanNumber.length > 15) {
                     setMessages(prev => [...prev, {
-                        id: Date.now().toString(),
+                        id: generateId(),
                         role: 'model',
-                        text: '❌ Format invalide. Utilisez uniquement des chiffres (8-15).\nExemple: 33612345678'
+                        text: '❌ Format invalide. Le numéro doit contenir entre 8 et 15 chiffres.\nExemple: 221760263631'
                     }]);
                     return true;
                 }
 
                 if (!user) {
                     setMessages(prev => [...prev, {
-                        id: Date.now().toString(),
+                        id: generateId(),
                         role: 'model',
                         text: '❌ Connectez-vous pour enregistrer votre numéro.'
                     }]);
@@ -676,122 +786,54 @@ export const useChatTerminal = ({ initialMessage, user, lastGameResult, onNaviga
                 }
 
                 try {
-                    const { error } = await supabase
+                    const { data, error } = await supabase
                         .from('profiles')
-                        .update({ whatsapp_number: number })
-                        .eq('id', user.id);
+                        .update({ whatsapp_number: cleanNumber })
+                        .eq('id', user.id)
+                        .select(); // Return updated data to check if row existed
 
                     if (error) throw error;
 
+                    if (!data || data.length === 0) {
+                        // Profile missing? Try creating it (fallback) mechanism or warn
+                        // For now, let's inform the user
+                        setMessages(prev => [...prev, {
+                            id: generateId(),
+                            role: 'model',
+                            text: '⚠️ Erreur : Votre profil introuvable dans la base de données. Essayez de vous déconnecter/reconnecter.'
+                        }]);
+                        return true;
+                    }
+
+                    let successMsg = `✅ Numéro WhatsApp enregistré : +${cleanNumber}\n\nLes autres membres peuvent maintenant vous mentionner avec @${user.user_metadata?.username || 'votre_pseudo'} pour vous contacter !`;
+
+                    if (cleanNumber.length === 9) {
+                        successMsg += `\n\n⚠️ Note : Assurez-vous d'avoir inclus l'indicatif pays (ex: 221 pour le Sénégal) pour que le lien WhatsApp fonctionne correctement.`;
+                    }
+
                     setMessages(prev => [...prev, {
-                        id: Date.now().toString(),
+                        id: generateId(),
                         role: 'model',
-                        text: `✅ Numéro WhatsApp enregistré : +${number}\n\nLes autres membres peuvent maintenant vous mentionner avec @${user.user_metadata?.username || 'votre_pseudo'} pour vous contacter !`
+                        text: successMsg
                     }]);
-                } catch (error) {
+                } catch (error: any) {
                     console.error('Update WA error:', error);
                     setMessages(prev => [...prev, {
-                        id: Date.now().toString(),
+                        id: generateId(),
                         role: 'model',
-                        text: '❌ Erreur lors de l\'enregistrement.'
+                        text: `❌ Erreur technique : ${error.message || 'Inconnue'}\n\nVérifiez que vous avez bien exécuté le script SQL pour ajouter la colonne 'whatsapp_number'.`
                     }]);
                 }
                 return true;
             }
 
-            // NEW: Mention Detection (@username)
-            if (command.startsWith('@')) {
-                const mentionPart = command.split(' ')[0]; // Get @username
-                const username = mentionPart.substring(1); // Remove @
-                const messageContent = command.replace(mentionPart, '').trim();
-
-                if (!messageContent) {
-                    setMessages(prev => [...prev, {
-                        id: Date.now().toString(),
-                        role: 'model',
-                        text: '❌ Ajoutez un message après la mention.\n\nExemple: @bicom Salut, ça va ?'
-                    }]);
-                    return true;
-                }
-
-                setMessages(prev => [...prev, {
-                    id: 'mention-search-' + Date.now(),
-                    role: 'model',
-                    text: `🔍 Recherche des coordonnées de "${username}"...`,
-                    isTyping: true
-                }]);
-
-                try {
-                    // Find user by username in profiles
-                    const { data: targetProfile, error } = await supabase
-                        .from('profiles')
-                        .select('whatsapp_number, username')
-                        .ilike('username', username) // Case insensitive
-                        .single();
-
-                    if (error || !targetProfile) {
-                        setMessages(prev => {
-                            const filtered = prev.filter(m => !m.isTyping);
-                            return [...filtered, {
-                                id: Date.now().toString(),
-                                role: 'model',
-                                text: `❌ Utilisateur @${username} introuvable.`
-                            }];
-                        });
-                        return true;
-                    }
-
-                    if (!targetProfile.whatsapp_number) {
-                        setMessages(prev => {
-                            const filtered = prev.filter(m => !m.isTyping);
-                            return [...filtered, {
-                                id: Date.now().toString(),
-                                role: 'model',
-                                text: `❌ @${targetProfile.username} n'a pas lié son numéro WhatsApp.`
-                            }];
-                        });
-                        return true;
-                    }
-
-                    const waUrl = `https://wa.me/${targetProfile.whatsapp_number}?text=${encodeURIComponent(`[Via OtaBlog] De ${user?.user_metadata?.username || 'Membre'}: ${messageContent}`)}`;
-
-                    setMessages(prev => {
-                        const filtered = prev.filter(m => !m.isTyping);
-                        return [...filtered, {
-                            id: 'wa-link-' + Date.now(),
-                            role: 'model',
-                            text: `📱 CONTACTOR LINK ÉTABLI\n\nDestinataire: ${targetProfile.username}\nMessage: "${messageContent}"\n\n✅ Cliquez pour ouvrir WhatsApp :`,
-                            data: { type: 'duel_invite', payload: null }, // Using duel_invite structure hack or regular text. Let's stick to text with link if possible or custom render.
-                        }, {
-                            id: 'wa-btn-' + Date.now(),
-                            role: 'model',
-                            text: `🔗 [OUVRIR WHATSAPP AVEC ${targetProfile.username}](${waUrl})` // Markdown link support needed in TerminalChat renderer if not present, but let's try or handle in renderer
-                        }];
-                    });
-
-                    // Auto-open attempt
-                    if (typeof window !== 'undefined') {
-                        window.open(waUrl, '_blank');
-                    }
-
-                } catch (error) {
-                    console.error('Mention error:', error);
-                    setMessages(prev => {
-                        const filtered = prev.filter(m => !m.isTyping);
-                        return [...filtered, {
-                            id: Date.now().toString(),
-                            role: 'model',
-                            text: `❌ Erreur système lors de la résolution du contact.`
-                        }];
-                    });
-                }
-                return true;
-            }
+            // NEW: Mention Detection (@username) - MOVED TO TOP
+            // Logic handled at start of function
 
             if (command === '/profile' || command === '/rank' || command === '/me') {
                 if (!user) {
                     setMessages(prev => [...prev, {
-                        id: Date.now().toString(),
+                        id: generateId(),
                         role: 'model',
                         text: '❌ Connectez-vous pour voir votre profil.'
                     }]);
@@ -800,7 +842,7 @@ export const useChatTerminal = ({ initialMessage, user, lastGameResult, onNaviga
 
                 if (onNavigate) {
                     setMessages(prev => [...prev, {
-                        id: Date.now().toString(),
+                        id: generateId(),
                         role: 'model',
                         text: `🔄 Redirection vers le Dashboard Profil...`,
                         isTyping: true
@@ -811,7 +853,7 @@ export const useChatTerminal = ({ initialMessage, user, lastGameResult, onNaviga
 
                 // Fallback to inline card if no navigation (old behavior)
                 setMessages(prev => [...prev, {
-                    id: Date.now().toString(),
+                    id: generateId(),
                     role: 'model',
                     text: `🆔 ACCÈS AU DOSSIER PERSONNEL...\n\nRécupération des données RPG...`,
                     isTyping: true
@@ -843,7 +885,7 @@ export const useChatTerminal = ({ initialMessage, user, lastGameResult, onNaviga
                     setMessages(prev => {
                         const filtered = prev.filter(m => !m.isTyping);
                         return [...filtered, {
-                            id: Date.now().toString(),
+                            id: generateId(),
                             role: 'model',
                             text: `🆔 IDENTITÉ CONFIRMÉE : ${profile.username}`,
                             data: {
@@ -858,7 +900,8 @@ export const useChatTerminal = ({ initialMessage, user, lastGameResult, onNaviga
                                     totalGames: profile.duel_total || 0,
                                     rank: rank,
                                     isOwnProfile: true, // Only for /profile command for now
-                                    userId: user.id // Pass ID for updates
+                                    userId: user.id, // Pass ID for updates
+                                    whatsappNumber: profile.whatsapp_number
                                 }
                             }
                         }];
@@ -869,7 +912,7 @@ export const useChatTerminal = ({ initialMessage, user, lastGameResult, onNaviga
                     setMessages(prev => {
                         const filtered = prev.filter(m => !m.isTyping);
                         return [...filtered, {
-                            id: Date.now().toString(),
+                            id: generateId(),
                             role: 'model',
                             text: '❌ Erreur lors du chargement du profil.'
                         }];
@@ -881,14 +924,14 @@ export const useChatTerminal = ({ initialMessage, user, lastGameResult, onNaviga
             switch (command) {
                 case '/clear': clearHistory(); return true;
                 case '/matrix': setIsMatrixMode(prev => !prev);
-                    setMessages(prev => [...prev, { id: 'sys-' + Date.now(), role: 'model', text: !isMatrixMode ? '🟢 Mode Matrix activé.' : '🔴 Mode Matrix désactivé.' }]); return true;
-                case '/help': setMessages(prev => [...prev, { id: 'hel-' + Date.now(), role: 'model', text: `📖 COMMANDES DISPONIBLES\n\n💬 COMMUNICATION 🆕\n> /setwa [numéro] - Lier votre WhatsApp\n> @[pseudo] [msg] - MP direct via WhatsApp\n\n🎮 DUELS & QUIZ\n> /duel [sujet] - Créer un défi\n> /solo [sujet] - S'entraîner\n> /join [code] - Rejoindre un défi\n\n🏆 PROGRESSION RPG\n> /profile - Voir votre carte & niveau\n> /leaderboard - Classement mondial\n> /stats - Stats détaillées\n\n🎲 FUN\n> /share [code] - Inviter via WhatsApp\n> /fortune - Citation otaku\n> /8ball [question] - Oracle\n> /roll [XdY] - Lés de JDR\n\n⚙️ SYSTÈME\n> /guide - Relancer le tutoriel\n> /clear - Effacer l'écran\n> /matrix - Mode Hacker\n\n💡 Utilisez /setwa pour être joignable par la communauté !` }]); return true;
-                case '/system': setMessages(prev => [...prev, { id: 'sys-' + Date.now(), role: 'model', text: `⚡ STATS SYSTÈME\n\n🟢 Status: ONLINE\n🤖 IA: Gemini Flash 2.0\n💾 Base: Supabase\n🎮 Défis: Persistants\n📊 Version: OtaBot v3.0\n\nTout fonctionne parfaitement ! ✨` }]); return true;
+                    setMessages(prev => [...prev, { id: 'sys-' + generateId(), role: 'model', text: !isMatrixMode ? '🟢 Mode Matrix activé.' : '🔴 Mode Matrix désactivé.' }]); return true;
+                case '/help': setMessages(prev => [...prev, { id: 'hel-' + generateId(), role: 'model', text: `📖 COMMANDES DISPONIBLES\n\n💬 COMMUNICATION 🆕\n> /setwa [numéro] - Lier votre WhatsApp\n> @[pseudo] [msg] - MP direct via WhatsApp\n\n🎮 DUELS & QUIZ\n> /duel [sujet] - Créer un défi\n> /solo [sujet] - S'entraîner\n> /join [code] - Rejoindre un défi\n\n🏆 PROGRESSION RPG\n> /profile - Voir votre carte & niveau\n> /leaderboard - Classement mondial\n> /stats - Stats détaillées\n\n🎲 FUN\n> /share [code] - Inviter via WhatsApp\n> /fortune - Citation otaku\n> /8ball [question] - Oracle\n> /roll [XdY] - Lés de JDR\n\n⚙️ SYSTÈME\n> /guide - Relancer le tutoriel\n> /clear - Effacer l'écran\n> /matrix - Mode Hacker\n\n💡 Utilisez /setwa pour être joignable par la communauté !` }]); return true;
+                case '/system': setMessages(prev => [...prev, { id: 'sys-' + generateId(), role: 'model', text: `⚡ STATS SYSTÈME\n\n🟢 Status: ONLINE\n🤖 IA: Gemini Flash 2.0\n💾 Base: Supabase\n🎮 Défis: Persistants\n📊 Version: OtaBot v3.0\n\nTout fonctionne parfaitement ! ✨` }]); return true;
                 default: return false;
             }
         } catch (err) {
             console.error("Command Error:", err);
-            setMessages(prev => [...prev, { id: 'sys-' + Date.now(), role: 'model', text: `⚠ ERREUR CRITIQUE.` }]);
+            setMessages(prev => [...prev, { id: 'sys-' + generateId(), role: 'model', text: `⚠ ERREUR CRITIQUE.` }]);
             return true;
         }
     }, [clearHistory, isMatrixMode, user, triggerHypnosis]);
@@ -896,7 +939,8 @@ export const useChatTerminal = ({ initialMessage, user, lastGameResult, onNaviga
     const sendMessage = async (input: string) => {
         if (!input.trim() || isLoading || !user) return;
 
-        if (input.startsWith('/')) {
+        // Check for commands OR mentions
+        if (input.startsWith('/') || input.startsWith('@')) {
             const isCommand = await processCommand(input);
             if (isCommand) return;
         }

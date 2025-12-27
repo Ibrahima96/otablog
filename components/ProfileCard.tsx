@@ -11,6 +11,7 @@ interface ProfileCardProps {
     totalGames: number;
     rank?: string;
     isOwnProfile?: boolean;
+    whatsappNumber?: string;
     onAvatarClick?: () => void;
 }
 
@@ -23,6 +24,7 @@ const ProfileCard: React.FC<ProfileCardProps> = ({
     wins,
     totalGames,
     isOwnProfile,
+    whatsappNumber,
     onAvatarClick
 }) => {
     const nextLevelXp = level * 100;
@@ -97,6 +99,20 @@ const ProfileCard: React.FC<ProfileCardProps> = ({
                             <Shield size={12} />
                             <span>{title}</span>
                         </div>
+                        {isOwnProfile && (
+                            <div className="flex items-center gap-2 font-mono text-[10px] mt-2">
+                                {whatsappNumber ? (
+                                    <span className="bg-green-500/10 text-green-400 px-2 py-1 rounded border border-green-500/20 flex items-center gap-1">
+                                        <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></span>
+                                        WA: +{whatsappNumber}
+                                    </span>
+                                ) : (
+                                    <span className="text-gray-500 italic">
+                                        (Aucun n° WhatsApp - Tapez /setwa)
+                                    </span>
+                                )}
+                            </div>
+                        )}
                     </div>
 
                     {/* XP Bar */}
