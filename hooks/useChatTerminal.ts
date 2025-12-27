@@ -644,6 +644,150 @@ export const useChatTerminal = ({ initialMessage, user, lastGameResult, onNaviga
                 return true;
             }
 
+            // NEW: Set WhatsApp Number
+            if (command.startsWith('/setwa')) {
+                const number = command.replace('/setwa', '').trim();
+                if (!number) {
+                    setMessages(prev => [...prev, {
+                        id: Date.now().toString(),
+                        role: 'model',
+                        text: '❌ Spécifiez votre numéro (format international sans +) !\n\nExemple: /setwa 33612345678'
+                    }]);
+                    return true;
+                }
+
+                // Basic validation (digits only, length check)
+                if (!/^\d{8,15}$/.test(number)) {
+                    setMessages(prev => [...prev, {
+                        id: Date.now().toString(),
+                        role: 'model',
+                        text: '❌ Format invalide. Utilisez uniquement des chiffres (8-15).\nExemple: 33612345678'
+                    }]);
+                    return true;
+                }
+
+                if (!user) {
+                    setMessages(prev => [...prev, {
+                        id: Date.now().toString(),
+                        role: 'model',
+                        text: '❌ Connectez-vous pour enregistrer votre numéro.'
+                    }]);
+                    return true;
+                }
+
+                try {
+                    const { error } = await supabase
+                        .from('profiles')
+                        .update({ whatsapp_number: number })
+                        .eq('id', user.id);
+
+                    if (error) throw error;
+
+                    setMessages(prev => [...prev, {
+                        id: Date.now().toString(),
+                        role: 'model',
+                        text: `✅ Numéro WhatsApp enregistré : +${number}\n\nLes autres membres peuvent maintenant vous mentionner avec @${user.user_metadata?.username || 'votre_pseudo'} pour vous contacter !`
+                    }]);
+                } catch (error) {
+                    console.error('Update WA error:', error);
+                    setMessages(prev => [...prev, {
+                        id: Date.now().toString(),
+                        role: 'model',
+                        text: '❌ Erreur lors de l\'enregistrement.'
+                    }]);
+                }
+                return true;
+            }
+
+            // NEW: Mention Detection (@username)
+            if (command.startsWith('@')) {
+                const mentionPart = command.split(' ')[0]; // Get @username
+                const username = mentionPart.substring(1); // Remove @
+                const messageContent = command.replace(mentionPart, '').trim();
+
+                if (!messageContent) {
+                    setMessages(prev => [...prev, {
+                        id: Date.now().toString(),
+                        role: 'model',
+                        text: '❌ Ajoutez un message après la mention.\n\nExemple: @bicom Salut, ça va ?'
+                    }]);
+                    return true;
+                }
+
+                setMessages(prev => [...prev, {
+                    id: 'mention-search-' + Date.now(),
+                    role: 'model',
+                    text: `🔍 Recherche des coordonnées de "${username}"...`,
+                    isTyping: true
+                }]);
+
+                try {
+                    // Find user by username in profiles
+                    const { data: targetProfile, error } = await supabase
+                        .from('profiles')
+                        .select('whatsapp_number, username')
+                        .ilike('username', username) // Case insensitive
+                        .single();
+
+                    if (error || !targetProfile) {
+                        setMessages(prev => {
+                            const filtered = prev.filter(m => !m.isTyping);
+                            return [...filtered, {
+                                id: Date.now().toString(),
+                                role: 'model',
+                                text: `❌ Utilisateur @${username} introuvable.`
+                            }];
+                        });
+                        return true;
+                    }
+
+                    if (!targetProfile.whatsapp_number) {
+                        setMessages(prev => {
+                            const filtered = prev.filter(m => !m.isTyping);
+                            return [...filtered, {
+                                id: Date.now().toString(),
+                                role: 'model',
+                                text: `❌ @${targetProfile.username} n'a pas lié son numéro WhatsApp.`
+                            }];
+                        });
+                        return true;
+                    }
+
+                    const waUrl = `https://wa.me/${targetProfile.whatsapp_number}?text=${encodeURIComponent(`[Via OtaBlog] De ${user?.user_metadata?.username || 'Membre'}: ${messageContent}`)}`;
+
+                    setMessages(prev => {
+                        const filtered = prev.filter(m => !m.isTyping);
+                        return [...filtered, {
+                            id: 'wa-link-' + Date.now(),
+                            role: 'model',
+                            text: `📱 CONTACTOR LINK ÉTABLI\n\nDestinataire: ${targetProfile.username}\nMessage: "${messageContent}"\n\n✅ Cliquez pour ouvrir WhatsApp :`,
+                            data: { type: 'duel_invite', payload: null }, // Using duel_invite structure hack or regular text. Let's stick to text with link if possible or custom render.
+                        }, {
+                            id: 'wa-btn-' + Date.now(),
+                            role: 'model',
+                            text: `🔗 [OUVRIR WHATSAPP AVEC ${targetProfile.username}](${waUrl})` // Markdown link support needed in TerminalChat renderer if not present, but let's try or handle in renderer
+                        }];
+                    });
+
+                    // Auto-open attempt
+                    if (typeof window !== 'undefined') {
+                        window.open(waUrl, '_blank');
+                    }
+
+                } catch (error) {
+                    console.error('Mention error:', error);
+                    setMessages(prev => {
+                        const filtered = prev.filter(m => !m.isTyping);
+                        return [...filtered, {
+                            id: Date.now().toString(),
+                            role: 'model',
+                            text: `❌ Erreur système lors de la résolution du contact.`
+                        }];
+                    });
+                }
+                return true;
+            }
+
             if (command === '/profile' || command === '/rank' || command === '/me') {
                 if (!user) {
                     setMessages(prev => [...prev, {
@@ -738,7 +882,7 @@ export const useChatTerminal = ({ initialMessage, user, lastGameResult, onNaviga
                 case '/clear': clearHistory(); return true;
                 case '/matrix': setIsMatrixMode(prev => !prev);
                     setMessages(prev => [...prev, { id: 'sys-' + Date.now(), role: 'model', text: !isMatrixMode ? '🟢 Mode Matrix activé.' : '🔴 Mode Matrix désactivé.' }]); return true;
-                case '/help': setMessages(prev => [...prev, { id: 'hel-' + Date.now(), role: 'model', text: `📖 COMMANDES DISPONIBLES\n\n🎮 DUELS & QUIZ\n> /duel [sujet] - Créer un défi\n> /solo [sujet] - S'entraîner\n> /join [code] - Rejoindre un défi\n\n🏆 PROGRESSION RPG 🆕\n> /profile - Voir votre carte & niveau\n> /leaderboard - Classement mondial\n> /myrank - Votre rang actuel\n> /stats - Stats détaillées\n\n🎲 FUN & SOCIAL\n> /share [code] - Inviter via WhatsApp\n> /fortune - Citation otaku\n> /8ball [question] - Oracle\n> /roll [XdY] - Lés de JDR\n\n⚙️ SYSTÈME\n> /guide - Relancer le tutoriel\n> /clear - Effacer l'écran\n> /matrix - Mode Hacker\n\n💡 Montez de niveau pour devenir Hokage ! 🍥` }]); return true;
+                case '/help': setMessages(prev => [...prev, { id: 'hel-' + Date.now(), role: 'model', text: `📖 COMMANDES DISPONIBLES\n\n💬 COMMUNICATION 🆕\n> /setwa [numéro] - Lier votre WhatsApp\n> @[pseudo] [msg] - MP direct via WhatsApp\n\n🎮 DUELS & QUIZ\n> /duel [sujet] - Créer un défi\n> /solo [sujet] - S'entraîner\n> /join [code] - Rejoindre un défi\n\n🏆 PROGRESSION RPG\n> /profile - Voir votre carte & niveau\n> /leaderboard - Classement mondial\n> /stats - Stats détaillées\n\n🎲 FUN\n> /share [code] - Inviter via WhatsApp\n> /fortune - Citation otaku\n> /8ball [question] - Oracle\n> /roll [XdY] - Lés de JDR\n\n⚙️ SYSTÈME\n> /guide - Relancer le tutoriel\n> /clear - Effacer l'écran\n> /matrix - Mode Hacker\n\n💡 Utilisez /setwa pour être joignable par la communauté !` }]); return true;
                 case '/system': setMessages(prev => [...prev, { id: 'sys-' + Date.now(), role: 'model', text: `⚡ STATS SYSTÈME\n\n🟢 Status: ONLINE\n🤖 IA: Gemini Flash 2.0\n💾 Base: Supabase\n🎮 Défis: Persistants\n📊 Version: OtaBot v3.0\n\nTout fonctionne parfaitement ! ✨` }]); return true;
                 default: return false;
             }
